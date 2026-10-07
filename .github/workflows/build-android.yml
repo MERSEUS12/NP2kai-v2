@@ -18,9 +18,17 @@ jobs:
           submodules: false
 
       - name: Corregir typo en jni/Android.mk
+        # La línea original es "INCFLAGS += (NP21_INCFLAGS)" (falta el $),
+        # lo que mete un argumento inválido en el compilador y omite las rutas de i386c.
         run: |
           sed -i 's/INCFLAGS += (NP21_INCFLAGS)/INCFLAGS += $(NP21_INCFLAGS)/' jni/Android.mk
           grep -n 'NP21_INCFLAGS' jni/Android.mk
+
+      - name: Añadir fuentes que faltan en jni/Android.mk (ymzadpcm)
+        # pccore.c y boardmo.c llaman a ymzadpcm_*, pero esos dos .c no están en las listas del Makefile.
+        run: |
+          sed -i 's|^SOURCES_C += \$(NP21_SOURCES_C) \\|SOURCES_C += $(NP21_SOURCES_C) $(NP2_PATH)/sound/ymzadpcmc.c $(NP2_PATH)/sound/ymzadpcmg.c \\|' jni/Android.mk
+          grep -n 'ymzadpcm' jni/Android.mk
 
       - name: Mostrar versión del NDK
         run: |
@@ -28,6 +36,7 @@ jobs:
           cat "$ANDROID_NDK_LATEST_HOME/source.properties"
 
       - name: Compilar con ndk-build (solo arm64-v8a)
+        # APP_SUPPORT_FLEXIBLE_PAGE_SIZES: compatible con dispositivos Android 15+ de páginas de 16 KB
         run: |
           "$ANDROID_NDK_LATEST_HOME/ndk-build" \
             NDK_PROJECT_PATH="$PWD" \
