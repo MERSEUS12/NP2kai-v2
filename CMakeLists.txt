@@ -78,7 +78,7 @@ if(MSVC_VERSION)
 endif()
 
 # NP2kai include dirs
-list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}" "${NP2kai_SOURCE_DIR}/common" "${NP2kai_SOURCE_DIR}/io" "${NP2kai_SOURCE_DIR}/vram")
+list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}" "${NP2kai_SOURCE_DIR}/common" "${NP2kai_SOURCE_DIR}/cbus" "${NP2kai_SOURCE_DIR}/io" "${NP2kai_SOURCE_DIR}/vram")
 
 list(APPEND NP2kai_normal_include_dirs "${NP2kai_SOURCE_DIR}/i286c")
 
@@ -754,6 +754,8 @@ target_sources(NP2kai_bbase INTERFACE ${NP2kai_common_sources})
 # alphabetically-sorted include order introduced in recent upstream merges.
 if(__EMSCRIPTEN__)
 	target_compile_options(NP2kai_bbase INTERFACE $<$<COMPILE_LANGUAGE:C>:-include ${NP2kai_SOURCE_DIR}/sdl/em/compiler.h>)
+elseif(MSVC)
+	target_compile_options(NP2kai_bbase INTERFACE $<$<COMPILE_LANGUAGE:C>:/FI${NP2kai_SOURCE_DIR}/windows/compiler.h>)
 else()
 	target_compile_options(NP2kai_bbase INTERFACE $<$<COMPILE_LANGUAGE:C>:-include compiler.h>)
 endif()
