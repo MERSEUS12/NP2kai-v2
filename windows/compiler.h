@@ -106,6 +106,14 @@ typedef	signed __int64		SINT64;
 #define	OEMSTRLEN			lstrlen
 #define	OEMPATHDIVC		'\\'
 
+#ifndef	MAX
+#define	MAX(a, b)	(((a) > (b)) ? (a) : (b))
+#endif
+#ifndef	MIN
+#define	MIN(a, b)	(((a) < (b)) ? (a) : (b))
+#endif
+#define	OEMSNPRINTF		snprintf
+
 #include "common.h"
 #include "milstr.h"
 #include "_memory.h"

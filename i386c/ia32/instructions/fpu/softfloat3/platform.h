@@ -48,7 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | them.  Internal linkage lets each translation unit inline those helpers while
 | the separately compiled primitive sources keep their single external symbols.
 *----------------------------------------------------------------------------*/
-#ifndef INLINE
+#undef INLINE
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244)
 #pragma warning(disable: 4245)
@@ -59,7 +59,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define INLINE static __inline__ __attribute__((always_inline))
 #else
 #define INLINE static
-#endif
 #endif
 
 /*----------------------------------------------------------------------------
