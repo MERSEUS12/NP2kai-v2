@@ -2390,7 +2390,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				return FALSE;
 			}
 
-			// Use the first HDD-configured IDE/SASI slot; never replace a CD-ROM slot.
+			// Use an existing HDD slot; never replace a configured CD-ROM slot.
+#if defined(SUPPORT_IDEIO)
 			for (i = 0; i < 4; i++)
 			{
 				if (np2cfg.idetype[i] == 0x01)
@@ -2403,6 +2404,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			{
 				return FALSE;
 			}
+#else
+			// The non-IDEIO Windows build exposes the first two SASI HDD slots.
+			hdddrv = 0;
+#endif
 
 			np2_multithread_EnterCriticalSection();
 			// Stage the new image path first. pccore_reset() rebinds/opens HDDs
