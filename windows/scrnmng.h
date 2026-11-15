@@ -88,7 +88,7 @@ typedef struct {
 extern "C" {
 #endif
 
-extern	SCRNMNG		scrnmng;			// マクロ用
+extern	SCRNMNG		scrnmng;			// ﾆ筑ﾆ誰ﾆ陳坂廃
 extern	SCRNSTAT	scrnstat;
 extern	SCRNRESCFG	scrnrescfg;
 
@@ -116,6 +116,9 @@ void scrnmng_setsize(int posx, int posy, int width, int height);
 const SCRNSURF *scrnmng_surflock(void);
 void scrnmng_surfunlock(const SCRNSURF *surf);
 void scrnmng_update(void);
+void scrnmng_setcrt(BOOL enabled, float strength);
+BOOL scrnmng_getcrtenabled(void);
+float scrnmng_getcrtstrength(void);
 
 #define	scrnmng_isfullscreen()	(scrnmng.flag & SCRNFLAG_FULLSCREEN)
 #define	scrnmng_haveextend()	(scrnmng.flag & SCRNFLAG_HAVEEXTEND)
