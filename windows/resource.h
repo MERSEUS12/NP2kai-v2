@@ -948,7 +948,7 @@
 #endif
 #endif
 
-#define IDM_CRT_ENABLE                  40300
-#define IDM_CRT_STRENGTH_LOW            40301
-#define IDM_CRT_STRENGTH_MEDIUM         40302
-#define IDM_CRT_STRENGTH_HIGH           40303
+#define IDM_CRT_ENABLE                  43600
+#define IDM_CRT_STRENGTH_LOW            43601
+#define IDM_CRT_STRENGTH_MEDIUM         43602
+#define IDM_CRT_STRENGTH_HIGH           43603
