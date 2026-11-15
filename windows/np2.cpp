@@ -1380,6 +1380,26 @@ static void OnCommand(HWND hWnd, WPARAM wParam)
 			break;
 #endif
 
+		case IDM_CRT_ENABLE:
+			scrnmng_setcrt(!scrnmng_getcrtenabled(), scrnmng_getcrtstrength());
+			update |= SYS_UPDATEOSCFG;
+			break;
+
+		case IDM_CRT_STRENGTH_LOW:
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.20f);
+			update |= SYS_UPDATEOSCFG;
+			break;
+
+		case IDM_CRT_STRENGTH_MEDIUM:
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.38f);
+			update |= SYS_UPDATEOSCFG;
+			break;
+
+		case IDM_CRT_STRENGTH_HIGH:
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.58f);
+			update |= SYS_UPDATEOSCFG;
+			break;
+
 		case IDM_WINDOW:
 			changescreen(g_scrnmode & (~SCRNMODE_FULLSCREEN));
 			break;
