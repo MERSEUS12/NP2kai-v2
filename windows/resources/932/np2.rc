@@ -1135,7 +1135,6 @@ BEGIN
     BEGIN
         MENUITEM "&Window",                     IDM_WINDOW
         MENUITEM "&Fullscreen",                 IDM_FULLSCREEN
-		//MENUITEM "&Restore window border",      IDM_RESTOREBORDER
         MENUITEM SEPARATOR
         POPUP "&Screen size"
         BEGIN
@@ -1148,6 +1147,8 @@ BEGIN
             MENUITEM "1920x1200(x3)",               IDM_SCRNMUL24
             MENUITEM "2560x1600(x4)",               IDM_SCRNMUL32
         END
+        MENUITEM SEPARATOR
+		//MENUITEM "&Restore window border",      IDM_RESTOREBORDER
         MENUITEM SEPARATOR
         MENUITEM "Nor&mal",                     IDM_ROLNORMAL
         MENUITEM "&Left rotated",               IDM_ROLLEFT
