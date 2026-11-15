@@ -2593,6 +2593,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_SYSCOMMAND:
 			update = 0;
 			switch(wParam) {
+				case IDM_CRT_ENABLE:
+					scrnmng_setcrt(!scrnmng_getcrtenabled(), scrnmng_getcrtstrength());
+					update |= SYS_UPDATEOSCFG;
+					break;
+
+				case IDM_CRT_STRENGTH_LOW:
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.20f);
+					update |= SYS_UPDATEOSCFG;
+					break;
+
+				case IDM_CRT_STRENGTH_MEDIUM:
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.38f);
+					update |= SYS_UPDATEOSCFG;
+					break;
+
+				case IDM_CRT_STRENGTH_HIGH:
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.58f);
+					update |= SYS_UPDATEOSCFG;
+					break;
+
 				case IDM_TOOLWIN:
 					np2oscfg.toolwin = !np2oscfg.toolwin;
 					if (np2oscfg.toolwin) {
