@@ -1713,9 +1713,10 @@ void scrnmngD3D_update(void) {
 					r = d3d.d3ddev->StretchRect(d3d.backsurf2, &rectbuf, d3d.d3dbacksurf, scrn, D3DTEXF_LINEAR);
 				}else{
 					r = d3d.d3ddev->StretchRect(d3d.backsurf, rect, d3d.d3dbacksurf, scrn, D3DTEXF_LINEAR);
+				
+				}
 				crt_area = *scrn;
 				crt_area_valid = TRUE;
-				}
 				*rect = lastrect;
 				*scrn = lastscrn;
 			}
@@ -1779,10 +1780,11 @@ void scrnmngD3D_update(void) {
 						dst.bottom -= dst.bottom - bufheight;
 					}
 					r = d3d.d3ddev->StretchRect(d3d.backsurf, &rectbuf, d3d.d3dbacksurf, &dst, D3DTEXF_LINEAR);
-				crt_area = dst;
-				crt_area_valid = TRUE;
+				
 				}
 			}
+			crt_area = dst;
+			crt_area_valid = TRUE;
 			//if((d3d.scrnmode & SCRNMODE_FULLSCREEN) && d3d.menudisp){
 			//	DrawMenuBar(g_hWndMain);
 			//}
