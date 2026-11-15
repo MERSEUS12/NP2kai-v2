@@ -947,3 +947,8 @@
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
+
+#define IDM_CRT_ENABLE                  40300
+#define IDM_CRT_STRENGTH_LOW            40301
+#define IDM_CRT_STRENGTH_MEDIUM         40302
+#define IDM_CRT_STRENGTH_HIGH           40303
