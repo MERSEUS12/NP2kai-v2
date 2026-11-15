@@ -79,6 +79,7 @@ endif()
 
 # NP2kai include dirs
 list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}" "${NP2kai_SOURCE_DIR}/common" "${NP2kai_SOURCE_DIR}/cbus" "${NP2kai_SOURCE_DIR}/io" "${NP2kai_SOURCE_DIR}/sound" "${NP2kai_SOURCE_DIR}/vram")
+list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}/generic")
 
 list(APPEND NP2kai_normal_include_dirs "${NP2kai_SOURCE_DIR}/i286c")
 
@@ -95,7 +96,7 @@ list(APPEND NP2kai_X_include_dirs "${NP2kai_SOURCE_DIR}/x")
 
 list(APPEND NP2kai_WX_include_dirs "${NP2kai_SOURCE_DIR}/wx")
 
-list(APPEND NP2kai_Windows_include_dirs "${NP2kai_SOURCE_DIR}/windows" "${NP2kai_SOURCE_DIR}/windows/misc")
+list(APPEND NP2kai_Windows_include_dirs "${NP2kai_SOURCE_DIR}/windows" "${NP2kai_SOURCE_DIR}/windows/misc") "${NP2kai_SOURCE_DIR}/generic"
 
 # NP2kai sources
 list(APPEND NP2kai_common_sources "${CMAKE_CURRENT_SOURCE_DIR}/calendar.c")
