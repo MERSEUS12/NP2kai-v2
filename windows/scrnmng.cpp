@@ -252,6 +252,10 @@ BRESULT scrnmng_create(UINT8 scrnmode) {
 	}
 	if(scrnmng_current_drawtype==DRAWTYPE_DIRECT3D){
 		BRESULT r = scrnmngD3D_create(scrnmode);
+		if (r == SUCCESS)
+		{
+			scrnmngD3D_setcrt(scrnmng_crt_enabled, scrnmng_crt_strength);
+		}
 		np2wab_forceupdate();
 		return  r;
 	}else
