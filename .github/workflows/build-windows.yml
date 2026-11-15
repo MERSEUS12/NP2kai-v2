@@ -36,6 +36,16 @@ jobs:
           ninja --version
           pkg-config --version
 
+      - name: Install Windows Driver Kit
+        shell: pwsh
+        run: |
+          winget install --id Microsoft.WindowsWDK.10.0.28000 --exact --silent --accept-package-agreements --accept-source-agreements
+          $wdkHeaders = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Include' -Filter ntddk.h -Recurse -ErrorAction SilentlyContinue
+          if (-not $wdkHeaders) {
+            throw 'WDK installation completed but ntddk.h was not found under Windows Kits.'
+          }
+          $wdkHeaders | Select-Object -First 1 -ExpandProperty FullName
+
       - name: Install vcpkg and libpng
         shell: pwsh
         run: |
