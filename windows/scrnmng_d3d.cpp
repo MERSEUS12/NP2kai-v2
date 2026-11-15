@@ -1596,8 +1596,8 @@ static void scrnmngD3D_applycrt(const RECT *area) {
 		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 		vertices[n].x=left; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 		vertices[n].x=left; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
-		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n++].color=color;
-		vertices[n].x=right; vertices[n].y=bottom; vertices[n].z=0; vertices[n++].color=color;
+		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
+		vertices[n].x=right; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 	}
 
 	hr = d3d.d3ddev->CreateStateBlock(D3DSBT_ALL, &state);
