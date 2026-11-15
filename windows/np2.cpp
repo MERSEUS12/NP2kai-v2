@@ -126,6 +126,9 @@ void cmwacom_setNCControl(bool enable);
 #endif
 
 static	TCHAR		szClassName[] = _T("NP2-MainWindow");
+
+// Frontend IPC: WM_COPYDATA carries a UTF-16 path to an HDD image.
+static const ULONG_PTR NP2_FRONTEND_COPYDATA_ID = 0x50433938; // "PC98"
 		HWND		g_hWndMain;
 		HINSTANCE	g_hInstance;
 #if !defined(_WIN64)
@@ -2346,6 +2349,86 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 	switch (msg) {
 		//	イメージファイルのＤ＆Ｄに対応(Kai1)
+		case WM_COPYDATA:
+		{
+			PCOPYDATASTRUCT cds = (PCOPYDATASTRUCT)lParam;
+			TCHAR tpath[MAX_PATH] = {0};
+			OEMCHAR fname[MAX_PATH] = {0};
+			DWORD attrs;
+			const OEMCHAR *ext;
+			int hdddrv = -1;
+			int i;
+			BOOL mounted = FALSE;
+
+			if (cds == NULL || cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
+				cds->lpData == NULL || cds->cbData < sizeof(TCHAR) ||
+				cds->cbData > sizeof(tpath) || (cds->cbData % sizeof(TCHAR)) != 0)
+			{
+				return FALSE;
+			}
+
+			CopyMemory(tpath, cds->lpData, cds->cbData);
+			tpath[MAX_PATH - 1] = 0;
+			if (tpath[0] == 0)
+			{
+				return FALSE;
+			}
+			attrs = GetFileAttributes(tpath);
+			if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				return FALSE;
+			}
+
+#if defined(OSLANG_UTF8)
+			milstr_ncpy(fname, tpath, NELEMENTS(fname));
+#else
+			file_cpyname(fname, tpath, NELEMENTS(fname));
+#endif
+			ext = file_getext(fname);
+			if (file_cmpname(ext, str_hdi) && file_cmpname(ext, str_thd) && file_cmpname(ext, str_nhd))
+			{
+				return FALSE;
+			}
+
+			// Use the first HDD-configured IDE/SASI slot; never replace a CD-ROM slot.
+			for (i = 0; i < 4; i++)
+			{
+				if (np2cfg.idetype[i] == 0x01)
+				{
+					hdddrv = i;
+					break;
+				}
+			}
+			if (hdddrv < 0)
+			{
+				return FALSE;
+			}
+
+			np2_multithread_EnterCriticalSection();
+			// Stage the new image path first. pccore_reset() rebinds/opens HDDs
+			// through diskdrv_hddbind() before the emulated BIOS starts executing.
+			diskdrv_setsxsi((REG8)hdddrv, fname);
+			pccore_cfgupdate();
+#ifdef HOOK_SYSKEY
+			stop_hook_systemkey();
+#endif
+			np2_multithread_Suspend();
+			if (nevent_iswork(NEVENT_CDWAIT))
+			{
+				nevent_forceexecute(NEVENT_CDWAIT);
+			}
+			pccore_reset();
+			mounted = (sxsi_getfilename((REG8)hdddrv) != NULL) ? TRUE : FALSE;
+			np2_SetUserPause(0);
+			np2_multithread_Resume();
+#ifdef HOOK_SYSKEY
+			start_hook_systemkey();
+#endif
+			np2_multithread_LeaveCriticalSection();
+			sysmng_updatecaption(SYS_UPDATECAPTION_FDD);
+			return mounted;
+		}
+
 		case WM_DROPFILES:
 			np2_multithread_EnterCriticalSection();
 			if(np2oscfg.dragdrop){
