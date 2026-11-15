@@ -1577,7 +1577,8 @@ static void scrnmngD3D_applycrt(const RECT *area) {
 	}
 
 	hr = d3d.d3ddev->CreateStateBlock(D3DSBT_ALL, &state);
-	if (SUCCEEDED(hr) && state && SUCCEEDED(state->Capture())) {
+	if (SUCCEEDED(hr) && state && SUCCEEDED(state->Capture()) &&
+		SUCCEEDED(d3d.d3ddev->BeginScene())) {
 		d3d.d3ddev->SetPixelShader(NULL);
 		d3d.d3ddev->SetVertexShader(NULL);
 		d3d.d3ddev->SetTexture(0, NULL);
@@ -1593,7 +1594,15 @@ static void scrnmngD3D_applycrt(const RECT *area) {
 		d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
 		d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
 		d3d.d3ddev->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
+		d3d.d3ddev->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
+		d3d.d3ddev->SetRenderState(D3DRS_FOGENABLE, FALSE);
+		{
+			UINT stage;
+			for (stage = 1; stage < 8; stage++)
+				d3d.d3ddev->SetTextureStageState(stage, D3DTSS_COLOROP, D3DTOP_DISABLE);
+		}
 		d3d.d3ddev->DrawPrimitiveUP(D3DPT_TRIANGLELIST, n / 3, vertices, sizeof(CRTVERTEX));
+		d3d.d3ddev->EndScene();
 		state->Apply();
 	}
 	if (state) state->Release();
