@@ -78,7 +78,7 @@ if(MSVC_VERSION)
 endif()
 
 # NP2kai include dirs
-list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}" "${NP2kai_SOURCE_DIR}/common")
+list(APPEND NP2kai_common_include_dirs "${NP2kai_SOURCE_DIR}" "${NP2kai_SOURCE_DIR}/common" "${NP2kai_SOURCE_DIR}/io" "${NP2kai_SOURCE_DIR}/vram")
 
 list(APPEND NP2kai_normal_include_dirs "${NP2kai_SOURCE_DIR}/i286c")
 
