@@ -367,6 +367,22 @@ void xmenu_update(HMENU hMenu)
 	CheckMenuItem(hMenu, IDM_20FPS, MF_BYCOMMAND | MFCHECK(DRAW_SKIP == 3));
 	CheckMenuItem(hMenu, IDM_15FPS, MF_BYCOMMAND | MFCHECK(DRAW_SKIP == 4));
 
+	// Keep the main-menu checks in sync with the system menu.
+	const int scrnmul = scrnmng_getmultiple();
+	CheckMenuItem(hMenu, IDM_SCRNMUL4, MF_BYCOMMAND | MFCHECK(scrnmul == 4));
+	CheckMenuItem(hMenu, IDM_SCRNMUL6, MF_BYCOMMAND | MFCHECK(scrnmul == 6));
+	CheckMenuItem(hMenu, IDM_SCRNMUL8, MF_BYCOMMAND | MFCHECK(scrnmul == 8));
+	CheckMenuItem(hMenu, IDM_SCRNMUL10, MF_BYCOMMAND | MFCHECK(scrnmul == 10));
+	CheckMenuItem(hMenu, IDM_SCRNMUL12, MF_BYCOMMAND | MFCHECK(scrnmul == 12));
+	CheckMenuItem(hMenu, IDM_SCRNMUL16, MF_BYCOMMAND | MFCHECK(scrnmul == 16));
+	CheckMenuItem(hMenu, IDM_SCRNMUL24, MF_BYCOMMAND | MFCHECK(scrnmul == 24));
+	CheckMenuItem(hMenu, IDM_SCRNMUL32, MF_BYCOMMAND | MFCHECK(scrnmul == 32));
+	CheckMenuItem(hMenu, IDM_CRT_ENABLE, MF_BYCOMMAND | MFCHECK(scrnmng_getcrtenabled()));
+	const float crtStrength = scrnmng_getcrtstrength();
+	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_LOW, MF_BYCOMMAND | MFCHECK(crtStrength < 0.30f));
+	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_MEDIUM, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.30f && crtStrength < 0.50f));
+	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_HIGH, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.50f));
+
 	// Device-Keyboard
 	const UINT8 KEY_MODE = np2cfg.KEY_MODE;
 	CheckMenuItem(hMenu, IDM_KEY, MF_BYCOMMAND | MFCHECK(KEY_MODE == 0));

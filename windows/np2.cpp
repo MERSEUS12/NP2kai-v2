@@ -2334,6 +2334,14 @@ static void OnCommand(HWND hWnd, WPARAM wParam)
 			break;
 
 		default:
+			if (IDM_SCRNMUL < uID && uID <= IDM_SCRNMUL_END) {
+				if ((!scrnmng_isfullscreen()) &&
+					!(GetWindowLong(g_hWndMain, GWL_STYLE) & WS_MINIMIZE))
+				{
+					scrnmng_setmultiple((int)(uID - IDM_SCRNMUL));
+				}
+				break;
+			}
 #if defined(SUPPORT_STATSAVE)
 			if ((uID >= IDM_FLAGSAVE) && (uID < (IDM_FLAGSAVE + SUPPORT_STATSAVE)))
 			{

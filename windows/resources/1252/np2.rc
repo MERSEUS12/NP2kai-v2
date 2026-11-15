@@ -1135,6 +1135,18 @@ BEGIN
         MENUITEM "&Window",                     IDM_WINDOW
         MENUITEM "&Fullscreen",                 IDM_FULLSCREEN
         MENUITEM SEPARATOR
+        POPUP "&Screen size"
+        BEGIN
+            MENUITEM "320x200(x0.5)",               IDM_SCRNMUL4
+            MENUITEM "480x300(x0.75)",              IDM_SCRNMUL6
+            MENUITEM "640x400(x1)",                 IDM_SCRNMUL8
+            MENUITEM "800x500(x1.25)",              IDM_SCRNMUL10
+            MENUITEM "960x600(x1.5)",               IDM_SCRNMUL12
+            MENUITEM "1280x800(x2)",                IDM_SCRNMUL16
+            MENUITEM "1920x1200(x3)",               IDM_SCRNMUL24
+            MENUITEM "2560x1600(x4)",               IDM_SCRNMUL32
+        END
+        MENUITEM SEPARATOR
         MENUITEM "Nor&mal",                     IDM_ROLNORMAL
         MENUITEM "&Left rotated",               IDM_ROLLEFT
         MENUITEM "&Right rotated",              IDM_ROLRIGHT
@@ -1320,6 +1332,14 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Help...",                    IDM_HELP
         MENUITEM "&About...",                   IDM_ABOUT
+    END
+    POPUP "&CRT"
+    BEGIN
+        MENUITEM "Enable CRT scanlines",            IDM_CRT_ENABLE
+        MENUITEM SEPARATOR
+        MENUITEM "Intensity Low",                   IDM_CRT_STRENGTH_LOW
+        MENUITEM "Intensity Medium",                IDM_CRT_STRENGTH_MEDIUM
+        MENUITEM "Intensity High",                  IDM_CRT_STRENGTH_HIGH
     END
 END
 
@@ -1645,9 +1665,9 @@ BEGIN
     IDS_APP_NAME2           "Neko Project II/W"
     IDS_APP_NAME21          "Neko Project 21/W"
     IDS_FILENAME_HELP       "np2.chm"
-    IDS_FONTFACE            "‚l‚r ƒSƒVƒbƒN"
+    IDS_FONTFACE            "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯"
     IDS_PFONTFACE           "Tahoma"
-    IDS_FONTFACE_PRIMARY    "‚l‚r ƒSƒVƒbƒN"
+    IDS_FONTFACE_PRIMARY    "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯"
     IDS_PFONTFACE_PRIMARY   "Tahoma"
     IDS_FONTFACE_SECONDARY  "MS Gothic"
 END
