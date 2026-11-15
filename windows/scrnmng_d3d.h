@@ -18,6 +18,7 @@ void scrnmngD3D_setsize(int posx, int posy, int width, int height);
 const SCRNSURF *scrnmngD3D_surflock(void);
 void scrnmngD3D_surfunlock(const SCRNSURF *surf);
 void scrnmngD3D_update(void);
+void scrnmngD3D_setcrt(BOOL enabled, float scanline_strength);
 
 RGB16 scrnmngD3D_makepal16(RGB32 pal32);
 
