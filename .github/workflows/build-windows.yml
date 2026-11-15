@@ -1,0 +1,59 @@
+name: Windows x64 build probe
+
+on:
+  push:
+    branches:
+      - ci/windows-build-probe
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout wx_alpha test branch
+        uses: actions/checkout@v4
+        with:
+          ref: ci/windows-build-probe
+          fetch-depth: 0
+
+      - name: Enable MSVC x64 environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Ninja and pkg-config
+        shell: pwsh
+        run: |
+          choco install ninja pkgconfiglite --no-progress -y
+          ninja --version
+          pkg-config --version
+
+      - name: Install vcpkg and libpng
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          & C:\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+          & C:\vcpkg\vcpkg.exe install libpng:x64-windows-static
+
+      - name: Configure NP2kai
+        shell: pwsh
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DBUILD_I286=OFF -DUSE_SDL2=OFF
+
+      - name: Build Windows x64 NP21kai
+        shell: pwsh
+        run: cmake --build build --target NP21kai_windows --parallel
+
+      - name: Publish executable and debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: NP2kai-Windows-x64-RelWithDebInfo
+          path: |
+            build/NP21kai_windows.exe
+            build/*.pdb
+          if-no-files-found: error
+          retention-days: 14
