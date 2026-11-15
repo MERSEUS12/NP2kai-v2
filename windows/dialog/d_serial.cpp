@@ -299,7 +299,7 @@ BOOL SerialOptComPage::OnInitDialog()
 	m_txtdirpath.SetWindowText(m_cfg.dirpath); 
 	m_nudfiletimeout.SubclassDlgItem(IDC_COM1FILETIMEOUT, this);
 	_stprintf(numbuf, _T("%d"), m_cfg.fileTimeout);
-	m_nudfiletimeout.SetWindowTextW(numbuf);
+	m_nudfiletimeout.SetWindowText(numbuf);
 
 	m_cmbspname.SubclassDlgItem(IDC_COM1SPOOLERNAME, this);
 	m_cmbspname.SetWindowText(m_cfg.spoolPrinterName);
@@ -307,25 +307,25 @@ BOOL SerialOptComPage::OnInitDialog()
 	_stprintf(numbuf, _T("%d"), m_cfg.spoolTimeout);
 	m_chkspcfg.SubclassDlgItem(IDC_COM1SPOOLERCFG, this);
 	CheckDlgButton(IDC_COM1SPOOLERCFG, (np2oscfg.prncfgpp) ? BST_CHECKED : BST_UNCHECKED);
-	m_nudsptimeout.SetWindowTextW(numbuf);
+	m_nudsptimeout.SetWindowText(numbuf);
 	m_cmbspemumode.SetWindowText(m_cfg.spoolPrinterName);
 	m_cmbspemumode.SubclassDlgItem(IDC_COM1SPOOLEREMUMODE, this);
 	m_cmbspemumode.Add(s_emumode, _countof(s_emumode));
 	m_cmbspemumode.SetCurItemData(m_cfg.spoolEmulation);
 	m_nudspemu_dotsize.SubclassDlgItem(IDC_COM1SPOOLEREMU_DOTSIZE, this);
 	_stprintf(numbuf, _T("%d"), m_cfg.spoolDotSize);
-	m_nudspemu_dotsize.SetWindowTextW(numbuf);
+	m_nudspemu_dotsize.SetWindowText(numbuf);
 	m_chkspemu_rectdot.SubclassDlgItem(IDC_COM1SPOOLEREMU_RECTDOT, this);
 	CheckDlgButton(IDC_COM1SPOOLEREMU_RECTDOT, (m_cfg.spoolRectDot) ? BST_CHECKED : BST_UNCHECKED);
 	m_nudspemu_offsetx.SubclassDlgItem(IDC_COM1SPOOLEREMU_OFFSETX, this);
 	_stprintf(numbuf, _T("%d"), m_cfg.spoolOffsetXmm);
-	m_nudspemu_offsetx.SetWindowTextW(numbuf);
+	m_nudspemu_offsetx.SetWindowText(numbuf);
 	m_nudspemu_offsety.SubclassDlgItem(IDC_COM1SPOOLEREMU_OFFSETY, this);
 	_stprintf(numbuf, _T("%d"), m_cfg.spoolOffsetYmm);
-	m_nudspemu_offsety.SetWindowTextW(numbuf);
+	m_nudspemu_offsety.SetWindowText(numbuf);
 	m_nudspemu_scale.SubclassDlgItem(IDC_COM1SPOOLEREMU_SCALE, this);
 	_stprintf(numbuf, _T("%d"), m_cfg.spoolScale);
-	m_nudspemu_scale.SetWindowTextW(numbuf);
+	m_nudspemu_scale.SetWindowText(numbuf);
 	if(m_cmbspname)
 	{
 		int indexsel = -1;

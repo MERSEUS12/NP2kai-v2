@@ -26,6 +26,12 @@ WINBASEAPI BOOL WINAPI SetFilePointerEx(HANDLE, LARGE_INTEGER, PLARGE_INTEGER, D
 #endif	// !defined(__GNUC__)
 #include <stdio.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <math.h>
+#include <ctype.h>
+#include <stdint.h>
 #include <setjmp.h>
 #if defined(TRACE)
 #include <assert.h>
@@ -98,6 +104,7 @@ typedef	signed __int64		SINT64;
 #define	OEMTEXT(string)		_T(string)
 #define	OEMSPRINTF			wsprintf
 #define	OEMSTRLEN			lstrlen
+#define	OEMPATHDIVC		'\\'
 
 #include "common.h"
 #include "milstr.h"
@@ -189,7 +196,9 @@ typedef	signed __int64		SINT64;
 
 #define SOUND_CRITICAL
 #define	SOUNDRESERVE	20
-#define SUPPORT_VSTi
+/* SUPPORT_VSTi disabled: the pinned VST3 SDK (vstsdk3614, 2019) lacks
+   pluginterfaces/vst2.x/aeffectx.h; np21w_mt does not define it either. */
+//#define SUPPORT_VSTi
 #define SUPPORT_ASIO
 #if (_MSC_VER >= 1500)
 #define SUPPORT_WASAPI

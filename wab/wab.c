@@ -598,7 +598,6 @@ void np2wab_drawframe()
 				}
 			}
 #if defined(NP2_WIN)
-		}
 	}else{
 		if(np2wabwnd.hWndWAB!=NULL){
 			if(ga_reqChangeWindowSize){

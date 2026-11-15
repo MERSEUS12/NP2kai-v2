@@ -468,7 +468,7 @@ REG8 opna_readExtendedStatus(POPNA opna)
 
 	if (cCaps & OPNA_HAS_ADPCM)
 	{
-if defined(SUPPORT_FMGEN)
+#if defined(SUPPORT_FMGEN)
 		if (opna->usefmgen)
 		{
 			ret = (REG8)(OPNA_ReadStatusEx(opna->fmgen) & 0x3c);

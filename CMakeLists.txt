@@ -283,6 +283,11 @@ list(APPEND NP2kai_Windows_sources "${CMAKE_CURRENT_SOURCE_DIR}/diskimage/cd/cdd
 #file(GLOB_RECURSE NP2kai_temp "windows/*.c" "windows/*.cpp")
 file(GLOB NP2kai_temp "${CMAKE_CURRENT_SOURCE_DIR}/windows/*.cpp")
 list(APPEND NP2kai_Windows_sources ${NP2kai_temp})
+# sstp.cpp/sstpmsg.cpp: legado sin soporte en wx_alpha (NP2OSCFG perdio
+# sstp/sstpport, WM_SSTP y SOUNDID_MMORCHESTRA no existen).
+list(REMOVE_ITEM NP2kai_Windows_sources
+	"${CMAKE_CURRENT_SOURCE_DIR}/windows/sstp.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/windows/sstpmsg.cpp")
 file(GLOB NP2kai_temp "${CMAKE_CURRENT_SOURCE_DIR}/windows/commng/*.cpp")
 list(APPEND NP2kai_Windows_sources ${NP2kai_temp})
 file(GLOB NP2kai_temp "${CMAKE_CURRENT_SOURCE_DIR}/windows/commng/wintab/*.cpp")

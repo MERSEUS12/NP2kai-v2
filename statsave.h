@@ -39,7 +39,7 @@ extern "C"
 {
 #endif
 
-extern uint8_t g_u8ControlState;
+extern UINT8 g_u8ControlState;
 
 int statflag_read(STFLAGH sfh, void *ptr, UINT size);
 int statflag_write(STFLAGH sfh, const void *ptr, UINT size);

@@ -6255,7 +6255,7 @@ int cirrusvga_drawGraphic(){
 			}
 		}
 	}
-#else
+#elif !defined(NP2_WIN)
 	memcpy(np2wabwnd.pBuffer, VRAMBuf, width * height * sizeof(unsigned int));
 	free(VRAMBuf);
 #endif

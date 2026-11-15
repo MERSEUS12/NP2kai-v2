@@ -1,4 +1,7 @@
 
+#ifndef	NP2_WIN_SCRNMNG_H
+#define	NP2_WIN_SCRNMNG_H
+
 enum {
 	RGB24_B	= 0,
 	RGB24_G	= 1,
@@ -156,4 +159,6 @@ void scrnmng_dispclock(void);
 #ifdef __cplusplus
 }
 #endif
+
+#endif	// NP2_WIN_SCRNMNG_H
 

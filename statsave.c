@@ -102,7 +102,7 @@ int ga1280a_sfload(STFLAGH sfh, const SFENTRY *tbl);
 
 #endif
 
-uint8_t g_u8ControlState;
+UINT8 g_u8ControlState;
 static OEMCHAR m_strStateFilename[MAX_PATH];
 
 #ifdef USE_MAME

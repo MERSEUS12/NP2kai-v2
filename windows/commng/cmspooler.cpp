@@ -428,7 +428,7 @@ void CComSpooler::CCStartDocPrinter()
 		//pDevMode->dmFields |= DM_PAPERWIDTH | DM_PAPERLENGTH;
 		//pDevMode->dmPaperWidth = 1000;
 		//pDevMode->dmPaperLength = 1480;
-		m_hdc = CreateDCW(L"WINSPOOL", printerName, nullptr, pDevMode);
+		m_hdc = CreateDC(_T("WINSPOOL"), printerName, nullptr, pDevMode);
 		if (!m_hdc) {
 			goto finalize;
 		}

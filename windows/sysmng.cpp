@@ -16,6 +16,7 @@
 #include	<vector>
 #include	<algorithm>
 #include	<string>
+#include	"tstring.h"
 #include	<process.h>
 
 extern UINT8	np2userpause;
@@ -82,25 +83,25 @@ OEMCHAR* DOSIOCALL sysmng_file_getname(OEMCHAR* lpPathName){
 	}
 }
 
-static bool sortfilefunc(const std::wstring& a, const std::wstring& b) {
-	const wchar_t* p1 = a.c_str(), * p2 = b.c_str();
+static bool sortfilefunc(const std::tstring& a, const std::tstring& b) {
+	const TCHAR* p1 = a.c_str(), * p2 = b.c_str();
 
 	while (*p1 && *p2) {
 
 		// 両方が数字 → 数値比較
-		if (iswdigit(*p1) && iswdigit(*p2)) {
+		if (_istdigit(*p1) && _istdigit(*p2)) {
 			// 数値部分を抽出
-			const wchar_t* b1 = p1;
-			const wchar_t* b2 = p2;
+			const TCHAR* b1 = p1;
+			const TCHAR* b2 = p2;
 
 			unsigned long long v1 = 0, v2 = 0;
 
-			while (iswdigit(*p1)) {
-				v1 = v1 * 10 + (*p1 - L'0');
+			while (_istdigit(*p1)) {
+				v1 = v1 * 10 + (*p1 - _T('0'));
 				p1++;
 			}
-			while (iswdigit(*p2)) {
-				v2 = v2 * 10 + (*p2 - L'0');
+			while (_istdigit(*p2)) {
+				v2 = v2 * 10 + (*p2 - _T('0'));
 				p2++;
 			}
 
@@ -118,12 +119,12 @@ static bool sortfilefunc(const std::wstring& a, const std::wstring& b) {
 		}
 		else {
 			// 数値以外 → 普通に比較
-			wchar_t c1 = *p1;
-			wchar_t c2 = *p2;
+			TCHAR c1 = *p1;
+			TCHAR c2 = *p2;
 
 			// 大文字小文字無視
-			c1 = towlower(c1);
-			c2 = towlower(c2);
+			c1 = _totlower(c1);
+			c2 = _totlower(c2);
 
 			if (c1 != c2) {
 				// ピリオドは優先する
@@ -159,12 +160,12 @@ typedef struct  {
 	HANDLE completedEvent;
 	TCHAR pattern[MAX_PATH];
 	bool isCancel;
-	std::vector<std::wstring> files;
+	std::vector<std::tstring> files;
 } SYSMNG_THREAD_FIND_FILE_ARGS;
 static unsigned int __stdcall sysmng_ThreadFuncFindFile(LPVOID vdParam)
 {
 	SYSMNG_THREAD_FIND_FILE_ARGS* args = (SYSMNG_THREAD_FIND_FILE_ARGS*)vdParam;
-	std::vector<std::wstring> files;
+	std::vector<std::tstring> files;
 	WIN32_FIND_DATA fd;
 	HANDLE hFind = FindFirstFile(args->pattern, &fd);
 	if (hFind == INVALID_HANDLE_VALUE) {
@@ -178,7 +179,7 @@ static unsigned int __stdcall sysmng_ThreadFuncFindFile(LPVOID vdParam)
 		}
 		sysmng_findfile_LeaveCriticalSection();
 
-		if (_tcscmp(fd.cFileName, L".") == 0 || _tcscmp(fd.cFileName, L"..") == 0)
+		if (_tcscmp(fd.cFileName, _T(".")) == 0 || _tcscmp(fd.cFileName, _T("..")) == 0)
 			continue;
 
 		files.push_back(fd.cFileName);
@@ -203,7 +204,7 @@ static void np2updatefddmenu(int drvNo) {
 	HMENU hMenuTgt;
 	int hMenuTgtPos;
 	MENUITEMINFO mii = { 0 };
-	std::vector<std::wstring> files;
+	std::vector<std::tstring> files;
 	TCHAR szDirBuf[MAX_PATH];
 	TCHAR szFindPatternBuf[MAX_PATH];
 	TCHAR* szDiskName;
