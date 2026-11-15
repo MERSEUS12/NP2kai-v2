@@ -366,10 +366,10 @@ struct tagNP2Config
 #if defined(SUPPORT_VIDEOFILTER)
 	BOOL     vf1_enable;
 	BOOL     vf1_bmponly;
-	uint8_t  vf1_pcount;
-	uint8_t  vf1_pno;
-	uint8_t  vf1_profile[3][2];
-	uint32_t vf1_param[3][3][8];
+	UINT8    vf1_pcount;
+	UINT8    vf1_pno;
+	UINT8    vf1_profile[3][2];
+	UINT32   vf1_param[3][3][8];
 #endif
 
 	// Setting Keyrepeat
