@@ -8,7 +8,7 @@ typedef struct {
 	int			fontwidth;
 	int			fontheight;
 
-// ‚ ‚Æ‚ÍŠg’£`
+// ã‚ã¨ã¯æ‹¡å¼µï½
 	HDC			hdcimage;
 	HBITMAP		hBitmap;
 	UINT8		*image;
@@ -21,8 +21,8 @@ typedef struct {
 } _FNTMNG, *FNTMNG;
 
 
-static const OEMCHAR deffontface[] = OEMTEXT("‚l‚r ƒSƒVƒbƒN");
-static const OEMCHAR deffontface2[] = OEMTEXT("‚l‚r ‚oƒSƒVƒbƒN");
+static const OEMCHAR deffontface[] = OEMTEXT("ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯");
+static const OEMCHAR deffontface2[] = OEMTEXT("ï¼­ï¼³ ï¼°ã‚´ã‚·ãƒƒã‚¯");
 static const OEMCHAR edeffontface[] = OEMTEXT("MS Gothic");
 static const OEMCHAR edeffontface2[] = OEMTEXT("MS PGothic");
 
@@ -52,13 +52,13 @@ static bool hasBitmapFont(HDC hdc, int checksize) {
 	EBLC_BITMAPSIZETABLE* tbl;
 	int i;
 
-	// EBLCƒe[ƒuƒ‹ƒTƒCƒY‚ğ–â‚¢‡‚í‚¹
+	// EBLCãƒ†ãƒ¼ãƒ–ãƒ«ã‚µã‚¤ã‚ºã‚’å•ã„åˆã‚ã›
 	size = GetFontData(hdc, 'CLBE', 0, NULL, 0);
 	if (size == GDI_ERROR) {
 		return false;
 	}
 
-	// EBLCƒe[ƒuƒ‹æ“¾
+	// EBLCãƒ†ãƒ¼ãƒ–ãƒ«å–å¾—
 	buf = (BYTE*)malloc(size);
 	if (!buf) return false;
 	if (GetFontData(hdc, 'CLBE', 0, buf, size) == GDI_ERROR) {
@@ -66,14 +66,14 @@ static bool hasBitmapFont(HDC hdc, int checksize) {
 		return false;
 	}
 
-	// ƒrƒbƒgƒ}ƒbƒv‚ª‚ ‚é‚©H
+	// ãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ãŒã‚ã‚‹ã‹ï¼Ÿ
 	numSizes = ((UINT32)buf[4] << 24) | ((UINT32)buf[5] << 16) | ((UINT32)buf[6] << 8) | (UINT32)buf[7];
 	if (numSizes == 0) {
 		free(buf);
 		return false;
 	}
 
-	// w’è‚µ‚½ƒTƒCƒY‚Ìƒrƒbƒgƒ}ƒbƒvƒtƒHƒ“ƒg‚ª‚ ‚é‚©Šm”F
+	// æŒ‡å®šã—ãŸã‚µã‚¤ã‚ºã®ãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ãƒ•ã‚©ãƒ³ãƒˆãŒã‚ã‚‹ã‹ç¢ºèª
 	tbl = (EBLC_BITMAPSIZETABLE*)(buf + 8);
 	for (i = 0; i < numSizes; i++) {
 		if (tbl[i].ppemY == checksize) {
@@ -183,7 +183,7 @@ void *fontmng_create(int size, UINT type, const OEMCHAR *fontface) {
 						NONANTIALIASED_QUALITY, pitch, fontface);
 	ret->hfont = (HFONT)SelectObject(ret->hdcimage, ret->hfont);
 	if (hasBitmapFont(ret->hdcimage, size)) {
-		// w’èƒTƒCƒY‚Ìƒrƒbƒgƒ}ƒbƒvƒtƒHƒ“ƒg‚ª‚ ‚è‚»‚¤‚Èê‡A‚»‚ê‚ğ‘I‘ğ
+		// æŒ‡å®šã‚µã‚¤ã‚ºã®ãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ãƒ•ã‚©ãƒ³ãƒˆãŒã‚ã‚Šãã†ãªå ´åˆã€ãã‚Œã‚’é¸æŠ
 		ret->hfont = (HFONT)SelectObject(ret->hdcimage, ret->hfont);
 		DeleteObject(ret->hfont);
 		ret->hfont = CreateFont(-size, 0,
@@ -224,26 +224,26 @@ static void getlength1(FNTMNG fhdl, FNTDAT fdat,
 
 	if (GetTextExtentPoint32(fhdl->hdcimage, string, length, &fntsize)) {
 #ifdef UNICODE
-		// Unicode•¶š‚È‚ç•¶šƒR[ƒh‚Å”»’è
+		// Unicodeæ–‡å­—ãªã‚‰æ–‡å­—ã‚³ãƒ¼ãƒ‰ã§åˆ¤å®š
 		if ((0x00 <= string[0] && string[0] <= 0x7F) || (0xFF61 <= string[0] && string[0] <= 0xFF9F)) {
-			// ”¼Šp‚È‚ç8
+			// åŠè§’ãªã‚‰8
 			fdat->width = 8;
 			fdat->pitch = 8;
 		}
 		else {
-			// ‘SŠp‚È‚ç16
+			// å…¨è§’ãªã‚‰16
 			fdat->width = 16;
 			fdat->pitch = 16;
 		}
 #else
-		// ƒ}ƒ‹ƒ`ƒoƒCƒg•¶š‚Ìê‡
-		if (leng == 1) {
-			// ”¼Šp‚È‚ç8
+		// ãƒãƒ«ãƒãƒã‚¤ãƒˆæ–‡å­—ã®å ´åˆ
+		if (length == 1) {
+			// åŠè§’ãªã‚‰8
 			fdat->width = 8;
 			fdat->pitch = 8;
 		}
 		else {
-			// ‘SŠp‚È‚ç16
+			// å…¨è§’ãªã‚‰16
 			fdat->width = 16;
 			fdat->pitch = 16;
 		}
@@ -269,21 +269,21 @@ static void fontmng_getchar(FNTMNG fhdl, FNTDAT fdat, const OEMCHAR *string) {
 	getlength1(fhdl, fdat, string, leng);
 
 #ifdef UNICODE
-	// Unicode•¶š‚È‚çÅ‰‚Ì’l‚ğ‚Æ‚é‚¾‚¯‚ÅOK
+	// Unicodeæ–‡å­—ãªã‚‰æœ€åˆã®å€¤ã‚’ã¨ã‚‹ã ã‘ã§OK
 	bufSize = GetGlyphOutline(fhdl->hdcimage, string[0], GGO_BITMAP, &gm, 0, NULL, &mat);
 #else
-	// ƒ}ƒ‹ƒ`ƒoƒCƒg•¶š‚Ìê‡
+	// ãƒãƒ«ãƒãƒã‚¤ãƒˆæ–‡å­—ã®å ´åˆ
 	if (leng == 1) {
-		// ”¼Šp‚È‚çÅ‰‚Ì’l‚ğ‚Æ‚é‚¾‚¯‚ÅOK
+		// åŠè§’ãªã‚‰æœ€åˆã®å€¤ã‚’ã¨ã‚‹ã ã‘ã§OK
 		bufSize = GetGlyphOutline(fhdl->hdcimage, string[0], GGO_BITMAP, &gm, 0, NULL, &mat);
 	}
 	else {
-		// ‘SŠp‚È‚ç2•¶š‚ğ‚Æ‚é
+		// å…¨è§’ãªã‚‰2æ–‡å­—ã‚’ã¨ã‚‹
 		bufSize = GetGlyphOutline(fhdl->hdcimage, (UINT)(string[0] << 8) | string[1], GGO_BITMAP, &gm, 0, NULL, &mat);
 	}
 #endif
 	if (bufSize != GDI_ERROR) {
-		// ‰E‚ğ‚Í‚İo‚·ê‡Ao—ˆ‚é‚¾‚¯û‚Ü‚é‚æ‚¤‚É’²®
+		// å³ã‚’ã¯ã¿å‡ºã™å ´åˆã€å‡ºæ¥ã‚‹ã ã‘åã¾ã‚‹ã‚ˆã†ã«èª¿æ•´
 		int ofsx = 0;
 		int ofsy = 0;
 		int realY = 0;
@@ -292,12 +292,12 @@ static void fontmng_getchar(FNTMNG fhdl, FNTDAT fdat, const OEMCHAR *string) {
 			if (ofsx < -gm.gmptGlyphOrigin.x) ofsx = -gm.gmptGlyphOrigin.x;
 		}
 		realY = (fhdl->tmAscent - gm.gmptGlyphOrigin.y);
-		if (!(0x21 <= string[0] && string[0] <= 0x7f) && realY + gm.gmBlackBoxY > fdat->height - 1) { // ASCII‚Í’²®‚©‚çœŠO
+		if (!(0x21 <= string[0] && string[0] <= 0x7f) && realY + gm.gmBlackBoxY > fdat->height - 1) { // ASCIIã¯èª¿æ•´ã‹ã‚‰é™¤å¤–
 			ofsy = fdat->height - 1 - (realY + gm.gmBlackBoxY);
 			if (ofsy < -realY) ofsy = -realY;
 		}
 		if (gm.gmBlackBoxX > fdat->width) {
-			// •‚ª‘å‚«‚¢‚È‚ç‹­§ƒXƒP[ƒ‹
+			// å¹…ãŒå¤§ãã„ãªã‚‰å¼·åˆ¶ã‚¹ã‚±ãƒ¼ãƒ«
 			XFORM xForm;
 			xForm.eM11 = 1.0f;
 			xForm.eM12 = 0.0f;
@@ -316,16 +316,16 @@ static void fontmng_getchar(FNTMNG fhdl, FNTDAT fdat, const OEMCHAR *string) {
 			SetGraphicsMode(fhdl->hdcimage, GM_COMPATIBLE);
 		}
 		else {
-			// ‚»‚Ì‚Ü‚Ü•`‰æ
+			// ãã®ã¾ã¾æç”»
 			TextOut(fhdl->hdcimage, ofsx, ofsy, string, leng);
 		}
 	}
 	else {
-		// •`‰æÚ×‚ğ‚Æ‚ê‚È‚¢‚Ì‚Å•’Ê‚Éo—Í
+		// æç”»è©³ç´°ã‚’ã¨ã‚Œãªã„ã®ã§æ™®é€šã«å‡ºåŠ›
 		TextOut(fhdl->hdcimage, 0, 0, string, leng);
 	}
 
-	// ¶‘¤1px‚ÍØ‚ê‚é‰Â”\«‚ª‚ ‚é‚Ì‚ÅˆÓ}“I‚É”ğ‚¯‚é
+	// å·¦å´1pxã¯åˆ‡ã‚Œã‚‹å¯èƒ½æ€§ãŒã‚ã‚‹ã®ã§æ„å›³çš„ã«é¿ã‘ã‚‹
 	if (fdat->width == 8) {
 		int i;
 		UINT8 hasbit = 0;
@@ -334,7 +334,7 @@ static void fontmng_getchar(FNTMNG fhdl, FNTDAT fdat, const OEMCHAR *string) {
 			hasbit |= fhdl->image[i];
 		}
 		if (!(hasbit & 0x01)) {
-			// ‰E‘¤‚ª‹ó‚¢‚Ä‚¢‚é‚Ì‚Å‚¸‚ç‚µ‚Ä¶‘¤‚ğ‹ó‚¯‚é
+			// å³å´ãŒç©ºã„ã¦ã„ã‚‹ã®ã§ãšã‚‰ã—ã¦å·¦å´ã‚’ç©ºã‘ã‚‹
 			for (i = 0; i < fdat->height * align; i += align) {
 				fhdl->image[i] >>= 1;
 			}
@@ -348,7 +348,7 @@ static void fontmng_getchar(FNTMNG fhdl, FNTDAT fdat, const OEMCHAR *string) {
 			hasbit |= fhdl->image[i];
 		}
 		if (!(hasbit & 0x01)) {
-			// ‰E‘¤‚ª‹ó‚¢‚Ä‚¢‚é‚Ì‚Å‚¸‚ç‚µ‚Ä¶‘¤‚ğ‹ó‚¯‚é
+			// å³å´ãŒç©ºã„ã¦ã„ã‚‹ã®ã§ãšã‚‰ã—ã¦å·¦å´ã‚’ç©ºã‘ã‚‹
 			for (i = 1; i < fdat->height * align; i += align) {
 				fhdl->image[i] = (fhdl->image[i] >> 1) | (fhdl->image[i - 1] << 7);
 				fhdl->image[i - 1] >>= 1;
