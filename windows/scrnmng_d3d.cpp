@@ -1536,77 +1536,135 @@ typedef struct {
 	DWORD color;
 } CRTVERTEX;
 
+static void scrnmngD3D_crtlog(const char *operation, HRESULT result)
+{
+	char message[160];
+	wsprintfA(message, "NP2kai CRT: %s failed (HRESULT=0x%08lX)\r\n",
+		operation, (unsigned long)result);
+	OutputDebugStringA(message);
+}
+
 static void scrnmngD3D_applycrt(const RECT *area) {
 	LPDIRECT3DSTATEBLOCK9 state = NULL;
 	D3DSURFACE_DESC desc;
-	CRTVERTEX *vertices;
+	CRTVERTEX *vertices = NULL;
+	RECT clipped;
 	UINT y, n = 0, capacity;
 	float alpha;
 	HRESULT hr;
 	DWORD color;
+	BOOL scene_started = FALSE;
 
 	if (!crt_scanlines_enabled || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
 		return;
 	if (area->right <= area->left || area->bottom <= area->top)
 		return;
-	if (FAILED(d3d.d3dbacksurf->GetDesc(&desc)) ||
-		area->left < 0 || area->top < 0 ||
-		area->right > (LONG)desc.Width || area->bottom > (LONG)desc.Height)
+
+	hr = d3d.d3dbacksurf->GetDesc(&desc);
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("GetDesc", hr);
+		return;
+	}
+
+	/* Clip the image rectangle instead of dropping the whole CRT pass. */
+	clipped = *area;
+	if (clipped.left < 0) clipped.left = 0;
+	if (clipped.top < 0) clipped.top = 0;
+	if (clipped.right > (LONG)desc.Width) clipped.right = (LONG)desc.Width;
+	if (clipped.bottom > (LONG)desc.Height) clipped.bottom = (LONG)desc.Height;
+	if (clipped.right <= clipped.left || clipped.bottom <= clipped.top)
 		return;
 
-	capacity = (((UINT)(area->bottom - area->top) + 2) / 3) * 6;
+	capacity = (((UINT)(clipped.bottom - clipped.top) + 2) / 3) * 6;
 	vertices = (CRTVERTEX*)malloc(sizeof(CRTVERTEX) * capacity);
-	if (!vertices) return;
+	if (!vertices) {
+		OutputDebugStringA("NP2kai CRT: vertex allocation failed\r\n");
+		return;
+	}
 
 	alpha = crt_scanline_strength;
 	if (alpha < 0.0f) alpha = 0.0f;
 	if (alpha > 0.75f) alpha = 0.75f;
 	color = ((DWORD)(alpha * 255.0f) << 24);
 
-	for (y = (UINT)area->top; y < (UINT)area->bottom; y += 3) {
+	for (y = (UINT)clipped.top; y < (UINT)clipped.bottom; y += 3) {
 		float top = (float)y - 0.5f;
 		float bottom = top + 1.0f;
-		float left = (float)area->left - 0.5f;
-		float right = (float)area->right - 0.5f;
+		float left = (float)clipped.left - 0.5f;
+		float right = (float)clipped.right - 0.5f;
 		vertices[n].x=left; vertices[n].y=top; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 		vertices[n].x=left; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
 		vertices[n].x=left; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
-		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
-		vertices[n].x=right; vertices[n].y=bottom; vertices[n].z=0; vertices[n].rhw=1; vertices[n++].color=color;
+		vertices[n].x=right; vertices[n].y=top; vertices[n].z=0; vertices[n++].color=color;
+		vertices[n].x=right; vertices[n].y=bottom; vertices[n].z=0; vertices[n++].color=color;
 	}
 
 	hr = d3d.d3ddev->CreateStateBlock(D3DSBT_ALL, &state);
-	if (SUCCEEDED(hr) && state && SUCCEEDED(state->Capture()) &&
-		SUCCEEDED(d3d.d3ddev->BeginScene())) {
-		d3d.d3ddev->SetPixelShader(NULL);
-		d3d.d3ddev->SetVertexShader(NULL);
-		d3d.d3ddev->SetTexture(0, NULL);
-		d3d.d3ddev->SetRenderState(D3DRS_ZENABLE, FALSE);
-		d3d.d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-		d3d.d3ddev->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-		d3d.d3ddev->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-		d3d.d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-		d3d.d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE);
-		d3d.d3ddev->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-		d3d.d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-		d3d.d3ddev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-		d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-		d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
-		d3d.d3ddev->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
-		d3d.d3ddev->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-		d3d.d3ddev->SetRenderState(D3DRS_FOGENABLE, FALSE);
-		{
-			UINT stage;
-			for (stage = 1; stage < 8; stage++)
-				d3d.d3ddev->SetTextureStageState(stage, D3DTSS_COLOROP, D3DTOP_DISABLE);
-		}
-		d3d.d3ddev->DrawPrimitiveUP(D3DPT_TRIANGLELIST, n / 3, vertices, sizeof(CRTVERTEX));
-		d3d.d3ddev->EndScene();
-		state->Apply();
+	if (FAILED(hr) || !state) {
+		scrnmngD3D_crtlog("CreateStateBlock", FAILED(hr) ? hr : E_FAIL);
+		goto cleanup;
 	}
+	hr = state->Capture();
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("StateBlock::Capture", hr);
+		goto cleanup;
+	}
+	hr = d3d.d3ddev->BeginScene();
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("BeginScene", hr);
+		goto cleanup;
+	}
+	scene_started = TRUE;
+
+#define CRT_SET_STATE(call, label) do { hr = (call); if (FAILED(hr)) { scrnmngD3D_crtlog((label), hr); goto finish_scene; } } while (0)
+	CRT_SET_STATE(d3d.d3ddev->SetPixelShader(NULL), "SetPixelShader");
+	CRT_SET_STATE(d3d.d3ddev->SetVertexShader(NULL), "SetVertexShader");
+	CRT_SET_STATE(d3d.d3ddev->SetTexture(0, NULL), "SetTexture");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_ZENABLE, FALSE), "ZENABLE");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE), "ALPHABLENDENABLE");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA), "SRCBLEND");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA), "DESTBLEND");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE), "CULLMODE");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_LIGHTING, FALSE), "LIGHTING");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE), "SCISSORTESTENABLE");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE), "ALPHATESTENABLE");
+	CRT_SET_STATE(d3d.d3ddev->SetRenderState(D3DRS_FOGENABLE, FALSE), "FOGENABLE");
+	CRT_SET_STATE(d3d.d3ddev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1), "TextureStage0 COLOROP");
+	CRT_SET_STATE(d3d.d3ddev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE), "TextureStage0 COLORARG1");
+	CRT_SET_STATE(d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1), "TextureStage0 ALPHAOP");
+	CRT_SET_STATE(d3d.d3ddev->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE), "TextureStage0 ALPHAARG1");
+	CRT_SET_STATE(d3d.d3ddev->SetFVF(D3DFVF_XYZRHW | D3DFVF_DIFFUSE), "SetFVF");
+	{
+		UINT stage;
+		for (stage = 1; stage < 8; stage++) {
+			hr = d3d.d3ddev->SetTextureStageState(stage, D3DTSS_COLOROP, D3DTOP_DISABLE);
+			if (FAILED(hr)) {
+				scrnmngD3D_crtlog("Disable texture stage", hr);
+				goto finish_scene;
+			}
+		}
+	}
+	hr = d3d.d3ddev->DrawPrimitiveUP(D3DPT_TRIANGLELIST, n / 3, vertices, sizeof(CRTVERTEX));
+	if (FAILED(hr))
+		scrnmngD3D_crtlog("DrawPrimitiveUP", hr);
+
+finish_scene:
+#undef CRT_SET_STATE
+	if (scene_started) {
+		HRESULT end_result = d3d.d3ddev->EndScene();
+		if (FAILED(end_result))
+			scrnmngD3D_crtlog("EndScene", end_result);
+	}
+	if (state) {
+		hr = state->Apply();
+		if (FAILED(hr))
+			scrnmngD3D_crtlog("StateBlock::Apply", hr);
+	}
+
+cleanup:
 	if (state) state->Release();
-	free(vertices);
+	if (vertices) free(vertices);
 }
 
 void scrnmngD3D_setcrt(BOOL enabled, float scanline_strength) {
