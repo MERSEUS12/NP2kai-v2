@@ -479,6 +479,9 @@ def _preparar_disco(exe, claves):
         bak = ruta_ini + ".bak"
         if not os.path.isfile(bak):
             shutil.copyfile(ruta_ini, bak)
+        # El ejecutable actual es narrow/ANSI: convertir INI UTF-16 heredados.
+        if codec in ("utf-16-le", "utf-16-be"):
+            codec = "mbcs"
     _ini_fijar_claves(ruta_ini, claves, texto, codec)
     return ruta_ini
 
