@@ -1693,16 +1693,38 @@ static UINT crt_shader_width = 0;
 static UINT crt_shader_height = 0;
 static BOOL crt_shader_failed = FALSE;
 
+static float crt_rgb_mask_strength = 0.0f;
+static float crt_vignette_strength = 0.0f;
+static float crt_curvature_strength = 0.0f;
+static float crt_glow_strength = 0.0f;
+
 static const char crt_shader_source[] =
 	"sampler2D FrameSampler : register(s0);\n"
 	"float ScanlineStrength : register(c0);\n"
 	"float PixelHeight : register(c1);\n"
+	"float4 EffectStrengths : register(c2);\n"
+	"float4 FrameSize : register(c3);\n"
 	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\n"
 	"float4 main(PixelInput input) : COLOR0 {\n"
-	"  float4 color = tex2D(FrameSampler, input.uv);\n"
+	"  float2 centered = input.scan_uv * 2.0 - 1.0;\n"
+	"  float curve = EffectStrengths.z * 0.08;\n"
+	"  float2 warped = input.uv + centered * dot(centered, centered) * curve * 0.5;\n"
+	"  float4 color = tex2D(FrameSampler, warped);\n"
+	"  float2 texel = FrameSize.zw;\n"
+	"  float3 glow = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;\n"
+	"  glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;\n"
+	"  glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;\n"
+	"  glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;\n"
+	"  color.rgb = lerp(color.rgb, max(color.rgb, glow * 0.25), EffectStrengths.w);\n"
 	"  float phase = frac(input.scan_uv.y * PixelHeight);\n"
 	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\n"
-	"  color.rgb *= scan; return color;\n"
+	"  color.rgb *= scan;\n"
+	"  float stripe = fmod(floor(input.uv.x * FrameSize.x), 3.0);\n"
+	"  float3 mask = (stripe < 1.0) ? float3(1.0, 0.72, 0.72) : ((stripe < 2.0) ? float3(0.72, 1.0, 0.72) : float3(0.72, 0.72, 1.0));\n"
+	"  color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);\n"
+	"  float vignette = saturate(1.0 - dot(centered, centered) * EffectStrengths.y);\n"
+	"  color.rgb *= vignette;\n"
+	"  return color;\n"
 	"}\n";
 
 static void scrnmngD3D_releasecrtresources(void)
@@ -1785,7 +1807,7 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	D3DSURFACE_DESC desc;
 	CRTSHADERVERTEX vertices[4];
 	RECT clipped;
-	float constants[8] = { 0 };
+	float constants[16] = { 0 };
 	float strength;
 	UINT source_height;
 	UINT i;
@@ -1900,6 +1922,14 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	if (strength > 0.75f) strength = 0.75f;
 	constants[0] = strength;
 	constants[4] = (float)source_height;
+	constants[8] = crt_rgb_mask_strength;
+	constants[9] = crt_vignette_strength;
+	constants[10] = crt_curvature_strength;
+	constants[11] = crt_glow_strength;
+	constants[12] = (float)desc.Width;
+	constants[13] = (float)desc.Height;
+	constants[14] = 1.0f / (float)desc.Width;
+	constants[15] = 1.0f / (float)desc.Height;
 
 	hr = d3d.d3ddev->BeginScene();
 	if (FAILED(hr)) {
@@ -1913,7 +1943,7 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	CRT_SHADER_SET(d3d.d3ddev->SetPixelShader(crt_pixel_shader), "SetPixelShader");
 	CRT_SHADER_SET(d3d.d3ddev->SetVertexShader(NULL), "SetVertexShader");
 	CRT_SHADER_SET(d3d.d3ddev->SetTexture(0, crt_shader_texture), "SetTexture");
-	CRT_SHADER_SET(d3d.d3ddev->SetPixelShaderConstantF(0, constants, 2), "SetPixelShaderConstantF");
+	CRT_SHADER_SET(d3d.d3ddev->SetPixelShaderConstantF(0, constants, 4), "SetPixelShaderConstantF");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ZENABLE, FALSE), "Shader ZENABLE");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE), "Shader ALPHABLENDENABLE");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE), "Shader CULLMODE");
@@ -1954,6 +1984,22 @@ static void scrnmngD3D_applycrt(const RECT *area)
 void scrnmngD3D_setcrt(BOOL enabled, float scanline_strength) {
 	crt_scanlines_enabled = enabled;
 	crt_scanline_strength = scanline_strength;
+}
+
+void scrnmngD3D_setcrteffects(float rgb_mask, float vignette, float curvature, float glow)
+{
+	if (rgb_mask < 0.0f) rgb_mask = 0.0f;
+	if (rgb_mask > 1.0f) rgb_mask = 1.0f;
+	if (vignette < 0.0f) vignette = 0.0f;
+	if (vignette > 1.0f) vignette = 1.0f;
+	if (curvature < 0.0f) curvature = 0.0f;
+	if (curvature > 1.0f) curvature = 1.0f;
+	if (glow < 0.0f) glow = 0.0f;
+	if (glow > 1.0f) glow = 1.0f;
+	crt_rgb_mask_strength = rgb_mask;
+	crt_vignette_strength = vignette;
+	crt_curvature_strength = curvature;
+	crt_glow_strength = glow;
 }
 
 void scrnmngD3D_update(void) {
