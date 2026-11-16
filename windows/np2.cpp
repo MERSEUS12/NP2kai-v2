@@ -761,12 +761,19 @@ static int flagsave(const OEMCHAR *ext) {
 
 	int		ret;
 	OEMCHAR	path[MAX_PATH];
-	
+
+	// Stop the emulation thread before touching the machine state. On Windows,
+	// statsave_save() only queues the request; the synchronous _d() function
+	// must run while the core is safely suspended.
 	np2_multithread_Suspend();
 	getstatfilename(path, ext, NELEMENTS(path));
 	soundmng_stop();
 	ret = statsave_save(path);
-	if (ret) {
+	if (ret == SUCCESS) {
+		ret = statsave_save_d();
+	}
+	g_u8ControlState = 0;
+	if (ret == STATFLAG_FAILURE) {
 		file_delete(path);
 	}
 	soundmng_play();
@@ -809,9 +816,22 @@ static int flagload(HWND hWnd, const OEMCHAR *ext, LPCTSTR title, BOOL force)
 	}
 	if (nID == IDYES)
 	{
-		statsave_load(szPath);
-		toolwin_setfdd(0, fdd_diskname(0));
-		toolwin_setfdd(1, fdd_diskname(1));
+		nRet = statsave_load(szPath);
+		if (nRet == SUCCESS) {
+			// Complete the load before resuming emulation so callers can
+			// observe the real result instead of merely an accepted request.
+			nRet = statsave_load_d();
+		}
+		g_u8ControlState = 0;
+		if (nRet == STATFLAG_FAILURE) {
+			messagebox(hWnd, MAKEINTRESOURCE(IDS_ERROR_RESUME),
+												MB_OK | MB_ICONSTOP);
+			nID = IDNO;
+		}
+		else {
+			toolwin_setfdd(0, fdd_diskname(0));
+			toolwin_setfdd(1, fdd_diskname(1));
+		}
 	}
 	sysmng_workclockreset();
 	sysmng_updatecaption(SYS_UPDATECAPTION_FDD);
