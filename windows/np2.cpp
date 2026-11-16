@@ -4079,6 +4079,9 @@ static void ExecuteOneFrame(BOOL bDraw)
 
 	joymng_sync();
 	mousemng_sync();
+#if defined(SUPPORT_STATSAVE)
+	processstatrequest();
+#endif
 	pccore_exec(bDraw);
 	recvideo_write();
 #if defined(SUPPORT_DCLOCK)
