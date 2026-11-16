@@ -1716,7 +1716,8 @@ static const char crt_shader_source[] =
 	"    glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;\n"
 	"    glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;\n"
 	"    glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;\n"
-	"    color.rgb = lerp(color.rgb, max(color.rgb, glow * 0.25), EffectStrengths.w);\n"
+	"    glow = max(glow * 0.25 - 0.30, 0.0) * 2.0;\n"
+	"    color.rgb = saturate(color.rgb + glow * (EffectStrengths.w * 0.85));\n"
 	"  }\n"
 	"  float phase = frac(input.scan_uv.y * PixelHeight);\n"
 	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\n"
@@ -1817,7 +1818,9 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	BOOL scene_started = FALSE;
 	BOOL draw_succeeded = FALSE;
 
-	if (!crt_scanlines_enabled || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
+	if ((!crt_scanlines_enabled && crt_rgb_mask_strength <= 0.001f &&
+		crt_vignette_strength <= 0.001f && crt_curvature_strength <= 0.001f &&
+		crt_glow_strength <= 0.001f) || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
 		return FALSE;
 	if (crt_shader_failed)
 		return FALSE;
