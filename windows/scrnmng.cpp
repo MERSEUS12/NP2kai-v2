@@ -45,6 +45,10 @@ int d3davailable = 0;
 
 static BOOL scrnmng_crt_enabled = FALSE;
 static float scrnmng_crt_strength = 0.28f;
+static float scrnmng_crt_rgb_mask = 0.0f;
+static float scrnmng_crt_vignette = 0.0f;
+static float scrnmng_crt_curvature = 0.0f;
+static float scrnmng_crt_glow = 0.0f;
 
 void scrnmng_setcrt(BOOL enabled, float strength)
 {
@@ -62,9 +66,21 @@ void scrnmng_setcrt(BOOL enabled, float strength)
 
 void scrnmng_setcrteffects(float rgb_mask, float vignette, float curvature, float glow)
 {
+	scrnmng_crt_rgb_mask = max(0.0f, min(1.0f, rgb_mask));
+	scrnmng_crt_vignette = max(0.0f, min(1.0f, vignette));
+	scrnmng_crt_curvature = max(0.0f, min(1.0f, curvature));
+	scrnmng_crt_glow = max(0.0f, min(1.0f, glow));
 #ifdef SUPPORT_SCRN_DIRECT3D
-	scrnmngD3D_setcrteffects(rgb_mask, vignette, curvature, glow);
+	scrnmngD3D_setcrteffects(scrnmng_crt_rgb_mask, scrnmng_crt_vignette, scrnmng_crt_curvature, scrnmng_crt_glow);
 #endif
+}
+
+void scrnmng_getcrteffects(float *rgb_mask, float *vignette, float *curvature, float *glow)
+{
+	if (rgb_mask) *rgb_mask = scrnmng_crt_rgb_mask;
+	if (vignette) *vignette = scrnmng_crt_vignette;
+	if (curvature) *curvature = scrnmng_crt_curvature;
+	if (glow) *glow = scrnmng_crt_glow;
 }
 
 BOOL scrnmng_getcrtenabled(void) { return scrnmng_crt_enabled; }
