@@ -1701,41 +1701,37 @@ static float crt_glow_strength = 0.0f;
 static const char crt_shader_source[] =
 	"sampler2D FrameSampler : register(s0);\n"
 	"float ScanlineStrength : register(c0);\n"
-	"float PixelHeight : register(c1);\n"
+	"float ScanPhaseScale : register(c1);      // half of the destination height\n"
+	"// EffectStrengths: RGB mask, vignette, curvature*0.04, glow\n"
 	"float4 EffectStrengths : register(c2);\n"
 	"float4 FrameSize : register(c3);\n"
 	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\n"
 	"float4 main(PixelInput input) : COLOR0 {\n"
 	"  float2 centered = input.scan_uv * 2.0 - 1.0;\n"
-	"  float curve = EffectStrengths.z * 0.08;\n"
-	"  float2 warped = input.uv + centered * dot(centered, centered) * curve * 0.5;\n"
+	"  float2 warped = input.uv + centered * dot(centered, centered) * EffectStrengths.z;\n"
 	"  float4 color = tex2D(FrameSampler, warped);\n"
-	"  float2 texel = FrameSize.zw;\n"
+	"  float2 texel = FrameSize.zw * 2.0;\n"
 	"  if (EffectStrengths.w > 0.001) {\n"
-	"    float3 glow = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;\n"
-	"    glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;\n"
-	"    glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;\n"
-	"    glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;\n"
-	"    glow = max(glow * 0.25 - 0.30, 0.0) * 2.0;\n"
-	"    color.rgb = saturate(color.rgb + glow * (EffectStrengths.w * 0.85));\n"
+	"    float3 h0 = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;\n"
+	"    float3 h1 = tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;\n"
+	"    float3 h2 = tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;\n"
+	"    float3 h3 = tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;\n"
+	"    float3 halo = max(max(h0, h1), max(h2, h3));\n"
+	"    float lit = dot(halo, float3(0.3333333, 0.3333333, 0.3333333));\n"
+	"    float soft = saturate((lit - 0.70) * 1.8);\n"
+	"    color.rgb = saturate(color.rgb + halo * soft * EffectStrengths.w * 0.5);\n"
 	"  }\n"
-	"  float phase = frac(input.scan_uv.y * PixelHeight);\n"
-	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\n"
-	"  color.rgb *= scan;\n"
-	"  float stripe = fmod(floor(input.uv.x * FrameSize.x), 3.0);\n"
-	"  float3 mask = (stripe < 1.0) ? float3(1.0, 0.90, 0.90) : ((stripe < 2.0) ? float3(0.90, 1.0, 0.90) : float3(0.90, 0.90, 1.0));\n"
-	"  float mask_luma_before = dot(color.rgb, float3(0.299, 0.587, 0.114));\n"
+	"  // One dark row every two, whatever the output scaling is.\n"
+	"  float phase = frac(input.scan_uv.y * ScanPhaseScale + 0.25);\n"
+	"  color.rgb *= 1.0 - ScanlineStrength * abs(phase * 2.0 - 1.0);\n"
+	"  // Slot mask: RGB triads every three pixels plus a thin horizontal gap.\n"
+	"  float x3 = frac(input.uv.x * FrameSize.x * 0.33333334) * 3.0;\n"
+	"  float3 mask = (x3 < 1.0) ? float3(1.60, 0.40, 0.40) : ((x3 < 2.0) ? float3(0.40, 1.60, 0.40) : float3(0.40, 0.40, 1.60));\n"
 	"  color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);\n"
-	"  float mask_luma_after = dot(color.rgb, float3(0.299, 0.587, 0.114));\n"
-	"  color.rgb = saturate(color.rgb * (mask_luma_before / max(mask_luma_after, 0.0001)));\n"
-	"  float edge_x = saturate((abs(centered.x) - 0.84) / 0.16);\n"
-	"  float edge_y = saturate((abs(centered.y) - 0.84) / 0.16);\n"
-	"  edge_x = edge_x * edge_x * (3.0 - 2.0 * edge_x);\n"
-	"  edge_y = edge_y * edge_y * (3.0 - 2.0 * edge_y);\n"
-	"  float edge = max(edge_x, edge_y);\n"
-	"  float corner = min(edge_x, edge_y);\n"
-	"  float vignette = saturate(1.0 - EffectStrengths.y * (edge * 0.18 + corner * 0.08));\n"
-	"  color.rgb *= vignette;\n"
+	"  color.rgb *= 1.0 - EffectStrengths.x * 0.35 * abs(phase * 2.0 - 1.0);\n"
+	"  // Tube shadow: wide falloff from the border, rounded corners.\n"
+	"  float2 tube = max(abs(centered) - 0.55, 0.0);\n"
+	"  color.rgb *= 1.0 - EffectStrengths.y * saturate(dot(tube, tube) * 2.2);\n"
 	"  return color;\n"
 	"}\n";
 
@@ -1821,7 +1817,6 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	RECT clipped;
 	float constants[16] = { 0 };
 	float strength;
-	UINT source_height;
 	UINT i;
 	HRESULT hr;
 	BOOL scene_started = FALSE;
@@ -1868,7 +1863,6 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 			&crt_shader_texture, NULL);
 		if (FAILED(hr) || !crt_shader_texture) {
 			scrnmngD3D_crtlog("CreateTexture", FAILED(hr) ? hr : E_FAIL);
-			crt_shader_failed = TRUE;
 			return FALSE;
 		}
 		hr = crt_shader_texture->GetSurfaceLevel(0, &crt_shader_surface);
@@ -1878,7 +1872,6 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 				crt_shader_texture->Release();
 				crt_shader_texture = NULL;
 			}
-			crt_shader_failed = TRUE;
 			return FALSE;
 		}
 		crt_shader_width = desc.Width;
@@ -1927,19 +1920,22 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 		vertices[i].rhw = 1.0f;
 	}
 
-	source_height = (d3d.scrnmode & SCRNMODE_ROTATE) ?
-		(UINT)(d3d.rect.right - d3d.rect.left) :
-		(UINT)(d3d.rect.bottom - d3d.rect.top);
-	if (!source_height) source_height = (UINT)(clipped.bottom - clipped.top);
 	strength = crt_scanline_strength;
 	if (strength < 0.0f) strength = 0.0f;
 	if (strength > 0.75f) strength = 0.75f;
-	constants[0] = strength;
-	constants[4] = (float)source_height;
-	constants[8] = crt_rgb_mask_strength;
-	constants[9] = crt_vignette_strength;
-	constants[10] = crt_curvature_strength;
-	constants[11] = crt_glow_strength;
+	constants[0] = crt_scanlines_enabled ? strength : 0.0f;
+	/* CRT intensity is the master level for every effect, not only scanlines. */
+	{
+		float level = strength / 0.68f;
+		if (level < 0.0f) level = 0.0f;
+		if (level > 1.0f) level = 1.0f;
+		constants[8] = crt_rgb_mask_strength * level;
+		constants[9] = crt_vignette_strength * level;
+		constants[10] = crt_curvature_strength * 0.04f * level;
+		constants[11] = crt_glow_strength * level;
+	}
+	/* The quad spans 'clipped'; half of it gives one cycle every two rows. */
+	constants[4] = (float)(clipped.bottom - clipped.top) * 0.5f;
 	constants[12] = (float)desc.Width;
 	constants[13] = (float)desc.Height;
 	constants[14] = 1.0f / (float)desc.Width;
@@ -1996,8 +1992,13 @@ static void scrnmngD3D_applycrt(const RECT *area)
 }
 
 void scrnmngD3D_setcrt(BOOL enabled, float scanline_strength) {
+	BOOL changed = (crt_scanlines_enabled != enabled) ||
+		(crt_scanline_strength != scanline_strength);
 	crt_scanlines_enabled = enabled;
 	crt_scanline_strength = scanline_strength;
+	/* A new setting is a good moment to retry a failed shader compile. */
+	if (changed)
+		crt_shader_failed = FALSE;
 }
 
 void scrnmngD3D_setcrteffects(float rgb_mask, float vignette, float curvature, float glow)
@@ -2010,6 +2011,9 @@ void scrnmngD3D_setcrteffects(float rgb_mask, float vignette, float curvature, f
 	if (curvature > 1.0f) curvature = 1.0f;
 	if (glow < 0.0f) glow = 0.0f;
 	if (glow > 1.0f) glow = 1.0f;
+	if (rgb_mask != crt_rgb_mask_strength || vignette != crt_vignette_strength ||
+		curvature != crt_curvature_strength || glow != crt_glow_strength)
+		crt_shader_failed = FALSE;
 	crt_rgb_mask_strength = rgb_mask;
 	crt_vignette_strength = vignette;
 	crt_curvature_strength = curvature;

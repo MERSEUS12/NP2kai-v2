@@ -1386,17 +1386,17 @@ static void OnCommand(HWND hWnd, WPARAM wParam)
 			break;
 
 		case IDM_CRT_STRENGTH_LOW:
-			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.20f);
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.22f);
 			update |= SYS_UPDATEOSCFG;
 			break;
 
 		case IDM_CRT_STRENGTH_MEDIUM:
-			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.38f);
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.42f);
 			update |= SYS_UPDATEOSCFG;
 			break;
 
 		case IDM_CRT_STRENGTH_HIGH:
-			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.58f);
+			scrnmng_setcrt(scrnmng_getcrtenabled(), 0.68f);
 			update |= SYS_UPDATEOSCFG;
 			break;
 
@@ -2643,17 +2643,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					break;
 
 				case IDM_CRT_STRENGTH_LOW:
-					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.20f);
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.22f);
 					update |= SYS_UPDATEOSCFG;
 					break;
 
 				case IDM_CRT_STRENGTH_MEDIUM:
-					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.38f);
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.42f);
 					update |= SYS_UPDATEOSCFG;
 					break;
 
 				case IDM_CRT_STRENGTH_HIGH:
-					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.58f);
+					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.68f);
 					update |= SYS_UPDATEOSCFG;
 					break;
 

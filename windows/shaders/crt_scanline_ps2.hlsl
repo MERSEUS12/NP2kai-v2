@@ -1,46 +1,39 @@
 // NP2kai optional CRT post-process, Direct3D 9 / ps_2_0.
-// Secondary effects are independently controlled and default to zero.
+// EffectStrengths: x = RGB mask, y = vignette, z = curvature * 0.04, w = glow
 sampler2D FrameSampler : register(s0);
 float ScanlineStrength : register(c0);
-float PixelHeight : register(c1);
-float4 EffectStrengths : register(c2); // RGB mask, vignette, curvature, glow
-float4 FrameSize : register(c3);       // width, height, 1/width, 1/height
+float ScanPhaseScale : register(c1);      // half of the destination height
+float4 EffectStrengths : register(c2);
+float4 FrameSize : register(c3);          // width, height, 1/width, 1/height
 struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };
 float4 main(PixelInput input) : COLOR0
 {
     float2 centered = input.scan_uv * 2.0 - 1.0;
-    float curve = EffectStrengths.z * 0.08;
-    float2 warped = input.uv + centered * dot(centered, centered) * curve * 0.5;
+    float2 warped = input.uv + centered * dot(centered, centered) * EffectStrengths.z;
     float4 color = tex2D(FrameSampler, warped);
-    float2 texel = FrameSize.zw;
+    float2 texel = FrameSize.zw * 2.0;
     if (EffectStrengths.w > 0.001)
     {
-        float3 glow = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;
-        glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;
-        glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;
-        glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;
-        glow = max(glow * 0.25 - 0.30, 0.0) * 2.0;
-        color.rgb = saturate(color.rgb + glow * (EffectStrengths.w * 0.85));
+        float3 h0 = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;
+        float3 h1 = tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;
+        float3 h2 = tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;
+        float3 h3 = tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;
+        float3 halo = max(max(h0, h1), max(h2, h3));
+        float lit = dot(halo, float3(0.3333333, 0.3333333, 0.3333333));
+        float soft = saturate((lit - 0.70) * 1.8);
+        color.rgb = saturate(color.rgb + halo * soft * EffectStrengths.w * 0.5);
     }
-    float phase = frac(input.scan_uv.y * PixelHeight);
-    float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));
-    color.rgb *= scan;
-    float stripe = fmod(floor(input.uv.x * FrameSize.x), 3.0);
-    float3 mask = (stripe < 1.0) ? float3(1.0, 0.90, 0.90) :
-        ((stripe < 2.0) ? float3(0.90, 1.0, 0.90) : float3(0.90, 0.90, 1.0));
-    // Preserve perceived luminance while retaining the RGB phosphor pattern.
-    float mask_luma_before = dot(color.rgb, float3(0.299, 0.587, 0.114));
+    // One dark row every two, whatever the output scaling is.
+    float phase = frac(input.scan_uv.y * ScanPhaseScale + 0.25);
+    color.rgb *= 1.0 - ScanlineStrength * abs(phase * 2.0 - 1.0);
+    // Slot mask: RGB triads every three pixels plus a thin horizontal gap.
+    float x3 = frac(input.uv.x * FrameSize.x * 0.33333334) * 3.0;
+    float3 mask = (x3 < 1.0) ? float3(1.60, 0.40, 0.40) :
+        ((x3 < 2.0) ? float3(0.40, 1.60, 0.40) : float3(0.40, 0.40, 1.60));
     color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);
-    float mask_luma_after = dot(color.rgb, float3(0.299, 0.587, 0.114));
-    color.rgb = saturate(color.rgb * (mask_luma_before / max(mask_luma_after, 0.0001)));
-    // Rectangular edge-only vignette: the center stays untouched.
-    float edge_x = saturate((abs(centered.x) - 0.84) / 0.16);
-    float edge_y = saturate((abs(centered.y) - 0.84) / 0.16);
-    edge_x = edge_x * edge_x * (3.0 - 2.0 * edge_x);
-    edge_y = edge_y * edge_y * (3.0 - 2.0 * edge_y);
-    float edge = max(edge_x, edge_y);
-    float corner = min(edge_x, edge_y);
-    float vignette = saturate(1.0 - EffectStrengths.y * (edge * 0.18 + corner * 0.08));
-    color.rgb *= vignette;
+    color.rgb *= 1.0 - EffectStrengths.x * 0.35 * abs(phase * 2.0 - 1.0);
+    // Tube shadow: wide falloff from the border, rounded corners.
+    float2 tube = max(abs(centered) - 0.55, 0.0);
+    color.rgb *= 1.0 - EffectStrengths.y * saturate(dot(tube, tube) * 2.2);
     return color;
 }
