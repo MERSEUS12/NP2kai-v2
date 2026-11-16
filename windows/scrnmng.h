@@ -117,6 +117,7 @@ const SCRNSURF *scrnmng_surflock(void);
 void scrnmng_surfunlock(const SCRNSURF *surf);
 void scrnmng_update(void);
 void scrnmng_setcrt(BOOL enabled, float strength);
+void scrnmng_setcrteffects(float rgb_mask, float vignette, float curvature, float glow);
 BOOL scrnmng_getcrtenabled(void);
 float scrnmng_getcrtstrength(void);
 
