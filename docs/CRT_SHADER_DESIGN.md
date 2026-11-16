@@ -32,5 +32,13 @@ This branch adds an optional CRT post-process to the Windows Direct3D 9 renderer
 - Confirm a CRT-on screenshot visibly shows scanlines while text remains legible.
 - Build Windows x64 Release and Debug before treating the feature as complete.
 
+## Luminance and edge-vignette refinement (2026-11-16)
+
+- RGB mask preserves the post-scanline perceived luminance by compensating the masked RGB channels; highlight clipping can still occur for saturated colors.
+- Vignette uses a rectangular edge-distance mask rather than a radial center-to-corner falloff. The center remains unchanged; the transition is limited to the outer screen border, with a slightly stronger corner contribution.
+- The vignette edge contribution is intentionally restrained: `0.18` on each edge and an additional `0.08` where both edge masks overlap, multiplied by the user-selected vignette strength.
+- Scanline intensity and glow behavior are unchanged; all secondary effects remain independently controlled and optional.
+- Acceptance test: compare Original, RGB Mask only, Vignette only, Scanlines only, and combined effects at the same game scene. Confirm the center brightness remains stable with RGB Mask/Vignette and that only the outer border darkens with Vignette.
+
 ## Current status
 This commit records the implementation constraints and test plan only. It does not claim the runtime shader is implemented.
