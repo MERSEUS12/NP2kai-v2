@@ -1694,16 +1694,16 @@ static UINT crt_shader_height = 0;
 static BOOL crt_shader_failed = FALSE;
 
 static const char crt_shader_source[] =
-	"sampler2D FrameSampler : register(s0);\\n"
-	"float ScanlineStrength : register(c0);\\n"
-	"float PixelHeight : register(c1);\\n"
-	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\\n"
-	"float4 main(PixelInput input) : COLOR0 {\\n"
-	"  float4 color = tex2D(FrameSampler, input.uv);\\n"
-	"  float phase = frac(input.scan_uv.y * PixelHeight);\\n"
-	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\\n"
-	"  color.rgb *= scan; return color;\\n"
-	"}\\n";
+	"sampler2D FrameSampler : register(s0);\n"
+	"float ScanlineStrength : register(c0);\n"
+	"float PixelHeight : register(c1);\n"
+	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\n"
+	"float4 main(PixelInput input) : COLOR0 {\n"
+	"  float4 color = tex2D(FrameSampler, input.uv);\n"
+	"  float phase = frac(input.scan_uv.y * PixelHeight);\n"
+	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\n"
+	"  color.rgb *= scan; return color;\n"
+	"}\n";
 
 static void scrnmngD3D_releasecrtresources(void)
 {
@@ -1748,7 +1748,7 @@ static BOOL scrnmngD3D_createcrtshader(void)
 	if (crt_compiler_module)
 		compile_proc = (CRT_D3DCOMPILE_PROC)GetProcAddress(crt_compiler_module, "D3DCompile");
 	if (!compile_proc) {
-		OutputDebugStringA("NP2kai CRT: D3DCompile is unavailable; using geometry fallback.\\r\\n");
+		OutputDebugStringA("NP2kai CRT: D3DCompile is unavailable; using geometry fallback.\r\n");
 		return FALSE;
 	}
 
@@ -1788,8 +1788,10 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	float constants[8] = { 0 };
 	float strength;
 	UINT source_height;
+	UINT i;
 	HRESULT hr;
 	BOOL scene_started = FALSE;
+	BOOL draw_succeeded = FALSE;
 
 	if (!crt_scanlines_enabled || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
 		return FALSE;
@@ -1927,6 +1929,7 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 		scrnmngD3D_crtlog("Shader DrawPrimitiveUP", hr);
 		goto crt_shader_finish;
 	}
+	draw_succeeded = TRUE;
 
 crt_shader_finish:
 #undef CRT_SHADER_SET
@@ -1939,7 +1942,7 @@ crt_shader_finish:
 	if (FAILED(hr))
 		scrnmngD3D_crtlog("CRT shader state Apply", hr);
 	state->Release();
-	return SUCCEEDED(hr);
+	return draw_succeeded;
 }
 
 static void scrnmngD3D_applycrt(const RECT *area)
