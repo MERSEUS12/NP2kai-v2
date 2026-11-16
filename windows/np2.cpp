@@ -2352,7 +2352,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_COPYDATA:
 		{
 			PCOPYDATASTRUCT cds = (PCOPYDATASTRUCT)lParam;
-			TCHAR tpath[MAX_PATH] = {0};
+			WCHAR wpath[MAX_PATH] = {0};
 			OEMCHAR fname[MAX_PATH] = {0};
 			DWORD attrs;
 			const OEMCHAR *ext;
@@ -2360,30 +2360,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int i;
 			BOOL mounted = FALSE;
 
+			// The payload is always UTF-16, whatever the TCHAR width is.
 			if (cds == NULL || cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
-				cds->lpData == NULL || cds->cbData < sizeof(TCHAR) ||
-				cds->cbData > sizeof(tpath) || (cds->cbData % sizeof(TCHAR)) != 0)
+				cds->lpData == NULL || cds->cbData < sizeof(WCHAR) ||
+				cds->cbData > sizeof(wpath) || (cds->cbData % sizeof(WCHAR)) != 0)
 			{
 				return FALSE;
 			}
 
-			CopyMemory(tpath, cds->lpData, cds->cbData);
-			tpath[MAX_PATH - 1] = 0;
-			if (tpath[0] == 0)
+			CopyMemory(wpath, cds->lpData, cds->cbData);
+			wpath[MAX_PATH - 1] = 0;
+			if (wpath[0] == 0)
 			{
 				return FALSE;
 			}
-			attrs = GetFileAttributes(tpath);
+			attrs = GetFileAttributesW(wpath);
 			if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY))
 			{
 				return FALSE;
 			}
 
-#if defined(OSLANG_UTF8)
-			milstr_ncpy(fname, tpath, NELEMENTS(fname));
-#else
-			file_cpyname(fname, tpath, NELEMENTS(fname));
-#endif
+			// file_open() uses CreateFileA in this (narrow) build.
+			if (WideCharToMultiByte(CP_ACP, 0, wpath, -1, (char *)fname, NELEMENTS(fname), NULL, NULL) <= 0)
+			{
+				return FALSE;
+			}
 			ext = file_getext(fname);
 			if (file_cmpname(ext, str_hdi) && file_cmpname(ext, str_thd) && file_cmpname(ext, str_nhd))
 			{

@@ -359,70 +359,158 @@ def _ini_del_emulador(exe):
     return os.path.join(os.path.dirname(exe), nombre)
 
 
-def _ini_fijar_claves(ruta_ini, claves):
+def _ini_leer(ruta):
+    """Devuelve (texto, codec) de un ini, detectando BOM UTF-16. (None, None) si no existe."""
+    if not os.path.isfile(ruta):
+        return None, None
+    with open(ruta, "rb") as f:
+        raw = f.read()
+    if raw[:2] == b"\xff\xfe":
+        return raw[2:].decode("utf-16-le", "replace"), "utf-16-le"
+    if raw[:2] == b"\xfe\xff":
+        return raw[2:].decode("utf-16-be", "replace"), "utf-16-be"
+    for codec in ("mbcs", "utf-8"):
+        try:
+            return raw.decode(codec), codec
+        except Exception:
+            pass
+    return raw.decode("latin-1"), "latin-1"
+
+
+def _ini_escribir(ruta, texto, codec):
+    if codec == "utf-16-le":
+        datos = b"\xff\xfe" + texto.encode("utf-16-le")
+    elif codec == "utf-16-be":
+        datos = b"\xfe\xff" + texto.encode("utf-16-be")
+    else:
+        datos = texto.encode(codec, "replace")
+    with open(ruta, "wb") as f:
+        f.write(datos)
+
+
+def _ini_fijar_claves(ruta_ini, claves, texto="", codec="mbcs"):
     """Actualiza claves de la seccion [NekoProject21] conservando el resto del archivo.
 
-    El emulador usa la primera aparicion de cada clave, asi que editamos el
-    primer bloque de la seccion. Se trabaja a nivel de bytes para no alterar
-    la codificacion original (ANSI) del resto del archivo.
+    El emulador usa la primera aparicion de cada clave, asi que editamos
+    lineas y no reescribimos el archivo entero.
     """
-    data = b""
-    if os.path.isfile(ruta_ini):
-        with open(ruta_ini, "rb") as f:
-            data = f.read()
-    i = data.find(b"[NekoProject21]")
-    if i < 0:
-        if data and not data.endswith((b"\r", b"\n")):
-            data += b"\r\n"
-        data += b"[NekoProject21]\r\n"
-        i = data.find(b"[NekoProject21]")
-    j = data.find(b"\n[", i + 15)
-    fin = len(data) if j < 0 else j + 1
-    bloque = data[i:fin]
-    for k, v in claves:
-        linea = k.encode("ascii") + b"=" + v.encode("mbcs")
-        m = re.search(rb"(?m)^" + re.escape(k.encode("ascii")) + rb"[ \t]*=.*$", bloque)
-        if m:
-            cr = b"\r" if m.group(0).endswith(b"\r") else b""
-            bloque = bloque[:m.start()] + linea + cr + bloque[m.end():]
+    lineas = texto.splitlines()
+    ini_sec = None
+    for k, ln in enumerate(lineas):
+        if ln.strip().lower() == "[nekoproject21]":
+            ini_sec = k
+            break
+    if ini_sec is None:
+        lineas.append("[NekoProject21]")
+        ini_sec = len(lineas) - 1
+    fin = len(lineas)
+    for k in range(ini_sec + 1, len(lineas)):
+        if lineas[k].lstrip().startswith("["):
+            fin = k
+            break
+    for nombre, valor in claves:
+        linea = nombre + "=" + valor
+        idx = None
+        for k in range(ini_sec + 1, fin):
+            s = lineas[k].strip()
+            if "=" in s and s.split("=", 1)[0].strip().lower() == nombre.lower():
+                idx = k
+                break
+        if idx is not None:
+            lineas[idx] = linea
         else:
-            nl = bloque.find(b"\n")
-            bloque = bloque[:nl + 1] + linea + b"\r\n" + bloque[nl + 1:]
-    data = data[:i] + bloque + data[fin:]
-    with open(ruta_ini, "wb") as f:
-        f.write(data)
+            lineas.insert(ini_sec + 1, linea)
+            fin += 1
+    eol = "\r\n" if "\r\n" in texto else "\n"
+    _ini_escribir(ruta_ini, eol.join(lineas) + eol, codec)
+
+
+def _preparar_disco(exe, claves):
+    """Escribe claves de arranque en el ini del emulador y devuelve su ruta.
+
+    Si el ini aun no existe se crea, migrando una sola vez los ajustes de un
+    np21.ini anterior (convirtiendo la codificacion si hiciera falta).
+    """
+    ruta_ini = _ini_del_emulador(exe)
+    texto, codec = _ini_leer(ruta_ini)
+    if texto is None:
+        viejo = os.path.join(os.path.dirname(exe), "np21.ini")
+        texto, _ = _ini_leer(viejo)
+        codec = "mbcs"                          # los exes actuales son build estrecho
+        if texto is None:
+            texto = ""
+    else:
+        bak = ruta_ini + ".bak"
+        if not os.path.isfile(bak):
+            shutil.copyfile(ruta_ini, bak)
+    _ini_fijar_claves(ruta_ini, claves, texto, codec)
+    return ruta_ini
 
 
 def _preparar_hdd(exe, ruta_disco):
     """Configura el juego como HDD IDE 0 en el ini del emulador y limpia FDD."""
-    ruta_ini = _ini_del_emulador(exe)
-    if not os.path.isfile(ruta_ini):
-        viejo = os.path.join(os.path.dirname(exe), "np21.ini")
-        if os.path.isfile(viejo):
-            shutil.copyfile(viejo, ruta_ini)   # migracion unica de ajustes
-    bak = ruta_ini + ".bak"
-    if os.path.isfile(ruta_ini) and not os.path.isfile(bak):
-        shutil.copyfile(ruta_ini, bak)
     claves = [("HDD1FILE", ruta_disco), ("IDE1TYPE", "1")]
     for n in range(1, 5):                      # el HDD arranca solo si no hay disquete
         claves.append(("FDD%dFILE" % n, ""))
-    _ini_fijar_claves(ruta_ini, claves)
-    return ruta_ini
+    return _preparar_disco(exe, claves)
 
 
 def _preparar_cd(exe, ruta_disco):
     """Configura el juego como CD-ROM IDE (unidad IDE2) en el ini del emulador."""
-    ruta_ini = _ini_del_emulador(exe)
-    if not os.path.isfile(ruta_ini):
-        viejo = os.path.join(os.path.dirname(exe), "np21.ini")
-        if os.path.isfile(viejo):
-            shutil.copyfile(viejo, ruta_ini)
-    bak = ruta_ini + ".bak"
-    if os.path.isfile(ruta_ini) and not os.path.isfile(bak):
-        shutil.copyfile(ruta_ini, bak)
-    claves = [("IDE2TYPE", "2"), ("CD2_FILE", ruta_disco)]
-    _ini_fijar_claves(ruta_ini, claves)
-    return ruta_ini
+    return _preparar_disco(exe, [("IDE2TYPE", "2"), ("CD2_FILE", ruta_disco)])
+
+
+NP2_CLASE = "NP2-MainWindow"
+NP2_COPYDATA_ID = 0x50433938
+WM_COPYDATA = 0x004A
+
+
+def _hwnd_emulador():
+    """Ventana del emulador NP21 en ejecucion, o 0 si no hay ninguno abierto."""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        h = u.FindWindowW(NP2_CLASE, None)
+        if not h:
+            h = u.FindWindowA(NP2_CLASE.encode("ascii"), None)
+        return h or 0
+    except Exception:
+        return 0
+
+
+def emulador_cambiar_hdd(ruta):
+    """Pide a un NP21 ya abierto que monte otra imagen HDD (WM_COPYDATA).
+
+    Ventaja: se cambia de juego sin reiniciar el emulador. Devuelve True solo
+    si el emulador confirma el montaje; en cualquier otro caso se arranca uno
+    nuevo con el juego ya configurado en el ini.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        hwnd = _hwnd_emulador()
+        if not hwnd:
+            return False
+
+        class COPYDATASTRUCT(ctypes.Structure):
+            _fields_ = [("dwData", ctypes.c_size_t),
+                        ("cbData", wintypes.DWORD),
+                        ("lpData", ctypes.c_void_p)]
+
+        # El emulador recibe la ruta en UTF-16 (independiente del build).
+        datos = ruta.encode("utf-16-le")
+        buf = ctypes.create_string_buffer(datos, len(datos))
+        cds = COPYDATASTRUCT(NP2_COPYDATA_ID, len(datos),
+                             ctypes.cast(buf, ctypes.c_void_p))
+        u = ctypes.windll.user32
+        u.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT,
+                                   wintypes.WPARAM, ctypes.c_void_p]
+        u.SendMessageW.restype = ctypes.c_ssize_t
+        return bool(u.SendMessageW(hwnd, WM_COPYDATA, 0, ctypes.byref(cds)))
+    except Exception:
+        return False
+
+
 COVERS = {}
 
 
@@ -523,12 +611,17 @@ def api_play(gid):
     perfil = db0.get("perfiles", {}).get(gid) or db0.get("ajustes", {})
     _, ign = aplicar_perfil(perfil)
     ext = os.path.splitext(g["path"])[1].lower()
+    cambiar = False
     try:
+        # Si ya hay un NP21 abierto y admite HDD, cambia de juego sin reiniciar.
         if ext in HDD_EXT:
-            _preparar_hdd(exe, g["path"])          # .hdi/.nhd/.thd -> HDD IDE 0
-        elif ext in CD_EXT:
-            _preparar_cd(exe, g["path"])           # .iso/.cue/... -> CD-ROM IDE
-        subprocess.Popen([exe], cwd=os.path.dirname(exe))
+            cambiar = emulador_cambiar_hdd(g["path"])
+        if not cambiar:
+            if ext in HDD_EXT:
+                _preparar_hdd(exe, g["path"])      # .hdi/.nhd/.thd -> HDD IDE 0
+            elif ext in CD_EXT:
+                _preparar_cd(exe, g["path"])       # .iso/.cue/... -> CD-ROM IDE
+            subprocess.Popen([exe], cwd=os.path.dirname(exe))
     except Exception as e:
         return {"ok": False, "error": f"No se pudo abrir el emulador: {e}"}
     with LOCK:
@@ -537,8 +630,13 @@ def api_play(gid):
         db["recientes"] = [gid] + [i for i in db.get("recientes", []) if i != gid][:11]
         save(DB_PATH, db)
     r = {"ok": True}
+    notas = []
+    if cambiar:
+        notas.append("Juego cambiado en el emulador abierto")
     if ign:
-        r["nota"] = "NP21/W no admite " + ", ".join(ign)
+        notas.append("NP21/W no admite " + ", ".join(ign))
+    if notas:
+        r["nota"] = " | ".join(notas)
     return r
 
 
