@@ -1400,6 +1400,42 @@ static void OnCommand(HWND hWnd, WPARAM wParam)
 			update |= SYS_UPDATEOSCFG;
 			break;
 
+		case IDM_CRT_RGB_MASK:
+		{
+			float rgbMask, vignette, curvature, glow;
+			scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+			scrnmng_setcrteffects(rgbMask > 0.0f ? 0.0f : 0.75f, vignette, curvature, glow);
+			update |= SYS_UPDATEOSCFG;
+		}
+		break;
+
+		case IDM_CRT_VIGNETTE:
+		{
+			float rgbMask, vignette, curvature, glow;
+			scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+			scrnmng_setcrteffects(rgbMask, vignette > 0.0f ? 0.0f : 0.75f, curvature, glow);
+			update |= SYS_UPDATEOSCFG;
+		}
+		break;
+
+		case IDM_CRT_CURVATURE:
+		{
+			float rgbMask, vignette, curvature, glow;
+			scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+			scrnmng_setcrteffects(rgbMask, vignette, curvature > 0.0f ? 0.0f : 0.75f, glow);
+			update |= SYS_UPDATEOSCFG;
+		}
+		break;
+
+		case IDM_CRT_GLOW:
+		{
+			float rgbMask, vignette, curvature, glow;
+			scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+			scrnmng_setcrteffects(rgbMask, vignette, curvature, glow > 0.0f ? 0.0f : 0.75f);
+			update |= SYS_UPDATEOSCFG;
+		}
+		break;
+
 		case IDM_WINDOW:
 			changescreen(g_scrnmode & (~SCRNMODE_FULLSCREEN));
 			break;
@@ -2620,6 +2656,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 					scrnmng_setcrt(scrnmng_getcrtenabled(), 0.58f);
 					update |= SYS_UPDATEOSCFG;
 					break;
+
+				case IDM_CRT_RGB_MASK:
+				{
+					float rgbMask, vignette, curvature, glow;
+					scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+					scrnmng_setcrteffects(rgbMask > 0.0f ? 0.0f : 0.75f, vignette, curvature, glow);
+					update |= SYS_UPDATEOSCFG;
+				}
+				break;
+
+				case IDM_CRT_VIGNETTE:
+				{
+					float rgbMask, vignette, curvature, glow;
+					scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+					scrnmng_setcrteffects(rgbMask, vignette > 0.0f ? 0.0f : 0.75f, curvature, glow);
+					update |= SYS_UPDATEOSCFG;
+				}
+				break;
+
+				case IDM_CRT_CURVATURE:
+				{
+					float rgbMask, vignette, curvature, glow;
+					scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+					scrnmng_setcrteffects(rgbMask, vignette, curvature > 0.0f ? 0.0f : 0.75f, glow);
+					update |= SYS_UPDATEOSCFG;
+				}
+				break;
+
+				case IDM_CRT_GLOW:
+				{
+					float rgbMask, vignette, curvature, glow;
+					scrnmng_getcrteffects(&rgbMask, &vignette, &curvature, &glow);
+					scrnmng_setcrteffects(rgbMask, vignette, curvature, glow > 0.0f ? 0.0f : 0.75f);
+					update |= SYS_UPDATEOSCFG;
+				}
+				break;
 
 				case IDM_TOOLWIN:
 					np2oscfg.toolwin = !np2oscfg.toolwin;
