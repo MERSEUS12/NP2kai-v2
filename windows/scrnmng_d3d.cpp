@@ -10,6 +10,7 @@
 #ifdef SUPPORT_SCRN_DIRECT3D
 
 #include <d3d9.h>
+#include <d3dcompiler.h>
 #include <stdlib.h>
 #ifndef __GNUC__
 #include <winnls32.h>
@@ -68,6 +69,8 @@ static int nvidia_fixflag = 0;
 
 static int devicelostflag = 0;
 static int req_enter_criticalsection = 0;
+
+static void scrnmngD3D_releasecrtresources(void);
 
 extern bool scrnmng_create_pending; // グラフィックレンダラ生成保留中
 extern bool scrnmng_restore_pending;
@@ -598,6 +601,7 @@ void scrnmngD3D_restoresurfaces() {
 			d3d.d3dbacksurf->Release();
 			d3d.d3dbacksurf = NULL;
 		}
+		scrnmngD3D_releasecrtresources();
 		r = d3d.d3ddev->Reset(&d3d.d3dparam);
 		if(r==D3D_OK){
 			//d3d.d3ddev->Clear(0, NULL, D3DCLEAR_TARGET, 0xffff00ff, 0, 0);  
@@ -1160,6 +1164,7 @@ scre_err:
 void scrnmngD3D_destroy(void) {
 	BOOL oldwindowed;
 
+	scrnmngD3D_releasecrtresources();
 	if(devicelostflag) return;
 	
 	d3d_enter_criticalsection();
@@ -1544,7 +1549,7 @@ static void scrnmngD3D_crtlog(const char *operation, HRESULT result)
 	OutputDebugStringA(message);
 }
 
-static void scrnmngD3D_applycrt(const RECT *area) {
+static void scrnmngD3D_applycrt_fallback(const RECT *area) {
 	LPDIRECT3DSTATEBLOCK9 state = NULL;
 	D3DSURFACE_DESC desc;
 	CRTVERTEX *vertices = NULL;
@@ -1665,6 +1670,282 @@ finish_scene:
 cleanup:
 	if (state) state->Release();
 	if (vertices) free(vertices);
+}
+
+
+/* Optional D3D9 pixel-shader CRT path. The geometry overlay below remains
+ * available as a fallback on systems without ps_2_0/compiler support. */
+typedef HRESULT (WINAPI *CRT_D3DCOMPILE_PROC)(
+	LPCVOID, SIZE_T, LPCSTR, const D3D_SHADER_MACRO *, ID3DInclude *,
+	LPCSTR, LPCSTR, UINT, UINT, ID3DBlob **, ID3DBlob **);
+
+typedef struct {
+	float x, y, z, rhw;
+	float u, v;
+	float scan_u, scan_v;
+} CRTSHADERVERTEX;
+
+static LPDIRECT3DTEXTURE9 crt_shader_texture = NULL;
+static LPDIRECT3DSURFACE9 crt_shader_surface = NULL;
+static LPDIRECT3DPIXELSHADER9 crt_pixel_shader = NULL;
+static HMODULE crt_compiler_module = NULL;
+static UINT crt_shader_width = 0;
+static UINT crt_shader_height = 0;
+static BOOL crt_shader_failed = FALSE;
+
+static const char crt_shader_source[] =
+	"sampler2D FrameSampler : register(s0);\\n"
+	"float ScanlineStrength : register(c0);\\n"
+	"float PixelHeight : register(c1);\\n"
+	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\\n"
+	"float4 main(PixelInput input) : COLOR0 {\\n"
+	"  float4 color = tex2D(FrameSampler, input.uv);\\n"
+	"  float phase = frac(input.scan_uv.y * PixelHeight);\\n"
+	"  float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));\\n"
+	"  color.rgb *= scan; return color;\\n"
+	"}\\n";
+
+static void scrnmngD3D_releasecrtresources(void)
+{
+	if (crt_pixel_shader) {
+		crt_pixel_shader->Release();
+		crt_pixel_shader = NULL;
+	}
+	if (crt_shader_surface) {
+		crt_shader_surface->Release();
+		crt_shader_surface = NULL;
+	}
+	if (crt_shader_texture) {
+		crt_shader_texture->Release();
+		crt_shader_texture = NULL;
+	}
+	crt_shader_width = 0;
+	crt_shader_height = 0;
+	crt_shader_failed = FALSE;
+}
+
+static BOOL scrnmngD3D_createcrtshader(void)
+{
+	static const char *compiler_names[] = {
+		"d3dcompiler_47.dll", "d3dcompiler_46.dll",
+		"d3dcompiler_43.dll", "d3dcompiler_42.dll"
+	};
+	CRT_D3DCOMPILE_PROC compile_proc = NULL;
+	ID3DBlob *code = NULL;
+	ID3DBlob *errors = NULL;
+	HRESULT hr = E_FAIL;
+	UINT i;
+
+	if (crt_pixel_shader)
+		return TRUE;
+	if (!crt_compiler_module) {
+		for (i = 0; i < sizeof(compiler_names) / sizeof(compiler_names[0]); i++) {
+			crt_compiler_module = LoadLibraryA(compiler_names[i]);
+			if (crt_compiler_module)
+				break;
+		}
+	}
+	if (crt_compiler_module)
+		compile_proc = (CRT_D3DCOMPILE_PROC)GetProcAddress(crt_compiler_module, "D3DCompile");
+	if (!compile_proc) {
+		OutputDebugStringA("NP2kai CRT: D3DCompile is unavailable; using geometry fallback.\\r\\n");
+		return FALSE;
+	}
+
+	hr = compile_proc(crt_shader_source, sizeof(crt_shader_source) - 1,
+		"NP2kai CRT scanline shader", NULL, NULL, "main", "ps_2_0",
+		D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &errors);
+	if (FAILED(hr) || !code) {
+		if (errors && errors->GetBufferPointer())
+			OutputDebugStringA((const char *)errors->GetBufferPointer());
+		scrnmngD3D_crtlog("D3DCompile", FAILED(hr) ? hr : E_FAIL);
+		if (errors) errors->Release();
+		if (code) code->Release();
+		return FALSE;
+	}
+	if (errors) errors->Release();
+
+	hr = d3d.d3ddev->CreatePixelShader(
+		(const DWORD *)code->GetBufferPointer(), &crt_pixel_shader);
+	code->Release();
+	if (FAILED(hr) || !crt_pixel_shader) {
+		scrnmngD3D_crtlog("CreatePixelShader", FAILED(hr) ? hr : E_FAIL);
+		if (crt_pixel_shader) {
+			crt_pixel_shader->Release();
+			crt_pixel_shader = NULL;
+		}
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
+{
+	LPDIRECT3DSTATEBLOCK9 state = NULL;
+	D3DSURFACE_DESC desc;
+	CRTSHADERVERTEX vertices[4];
+	RECT clipped;
+	float constants[8] = { 0 };
+	float strength;
+	UINT source_height;
+	HRESULT hr;
+	BOOL scene_started = FALSE;
+
+	if (!crt_scanlines_enabled || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
+		return FALSE;
+	if (crt_shader_failed)
+		return FALSE;
+
+	hr = d3d.d3dbacksurf->GetDesc(&desc);
+	if (FAILED(hr) || !desc.Width || !desc.Height) {
+		scrnmngD3D_crtlog("CRT backbuffer GetDesc", FAILED(hr) ? hr : E_FAIL);
+		return FALSE;
+	}
+
+	clipped = *area;
+	if (clipped.left < 0) clipped.left = 0;
+	if (clipped.top < 0) clipped.top = 0;
+	if (clipped.right > (LONG)desc.Width) clipped.right = (LONG)desc.Width;
+	if (clipped.bottom > (LONG)desc.Height) clipped.bottom = (LONG)desc.Height;
+	if (clipped.right <= clipped.left || clipped.bottom <= clipped.top)
+		return TRUE;
+
+	if (!scrnmngD3D_createcrtshader()) {
+		crt_shader_failed = TRUE;
+		return FALSE;
+	}
+
+	if (!crt_shader_texture || crt_shader_width != desc.Width ||
+		crt_shader_height != desc.Height) {
+		if (crt_shader_surface) {
+			crt_shader_surface->Release();
+			crt_shader_surface = NULL;
+		}
+		if (crt_shader_texture) {
+			crt_shader_texture->Release();
+			crt_shader_texture = NULL;
+		}
+		hr = d3d.d3ddev->CreateTexture(desc.Width, desc.Height, 1,
+			D3DUSAGE_RENDERTARGET, desc.Format, D3DPOOL_DEFAULT,
+			&crt_shader_texture, NULL);
+		if (FAILED(hr) || !crt_shader_texture) {
+			scrnmngD3D_crtlog("CreateTexture", FAILED(hr) ? hr : E_FAIL);
+			crt_shader_failed = TRUE;
+			return FALSE;
+		}
+		hr = crt_shader_texture->GetSurfaceLevel(0, &crt_shader_surface);
+		if (FAILED(hr) || !crt_shader_surface) {
+			scrnmngD3D_crtlog("GetSurfaceLevel", FAILED(hr) ? hr : E_FAIL);
+			if (crt_shader_texture) {
+				crt_shader_texture->Release();
+				crt_shader_texture = NULL;
+			}
+			crt_shader_failed = TRUE;
+			return FALSE;
+		}
+		crt_shader_width = desc.Width;
+		crt_shader_height = desc.Height;
+	}
+
+	/* Snapshot the already-scaled frame before drawing back onto the backbuffer. */
+	hr = d3d.d3ddev->StretchRect(d3d.d3dbacksurf, NULL,
+		crt_shader_surface, NULL, D3DTEXF_NONE);
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("CRT frame copy", hr);
+		return FALSE;
+	}
+
+	hr = d3d.d3ddev->CreateStateBlock(D3DSBT_ALL, &state);
+	if (FAILED(hr) || !state) {
+		scrnmngD3D_crtlog("CRT shader CreateStateBlock", FAILED(hr) ? hr : E_FAIL);
+		return FALSE;
+	}
+	hr = state->Capture();
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("CRT shader state Capture", hr);
+		state->Release();
+		return FALSE;
+	}
+
+	vertices[0].x = (float)clipped.left - 0.5f;
+	vertices[0].y = (float)clipped.top - 0.5f;
+	vertices[1].x = (float)clipped.right - 0.5f;
+	vertices[1].y = (float)clipped.top - 0.5f;
+	vertices[2].x = (float)clipped.left - 0.5f;
+	vertices[2].y = (float)clipped.bottom - 0.5f;
+	vertices[3].x = (float)clipped.right - 0.5f;
+	vertices[3].y = (float)clipped.bottom - 0.5f;
+
+	vertices[0].u = vertices[2].u = (float)clipped.left / (float)desc.Width;
+	vertices[1].u = vertices[3].u = (float)clipped.right / (float)desc.Width;
+	vertices[0].v = vertices[1].v = (float)clipped.top / (float)desc.Height;
+	vertices[2].v = vertices[3].v = (float)clipped.bottom / (float)desc.Height;
+	vertices[0].scan_u = vertices[2].scan_u = 0.0f;
+	vertices[1].scan_u = vertices[3].scan_u = 1.0f;
+	vertices[0].scan_v = vertices[1].scan_v = 0.0f;
+	vertices[2].scan_v = vertices[3].scan_v = 1.0f;
+	for (i = 0; i < 4; i++) {
+		vertices[i].z = 0.0f;
+		vertices[i].rhw = 1.0f;
+	}
+
+	source_height = (d3d.scrnmode & SCRNMODE_ROTATE) ?
+		(UINT)(d3d.rect.right - d3d.rect.left) :
+		(UINT)(d3d.rect.bottom - d3d.rect.top);
+	if (!source_height) source_height = (UINT)(clipped.bottom - clipped.top);
+	strength = crt_scanline_strength;
+	if (strength < 0.0f) strength = 0.0f;
+	if (strength > 0.75f) strength = 0.75f;
+	constants[0] = strength;
+	constants[4] = (float)source_height;
+
+	hr = d3d.d3ddev->BeginScene();
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("CRT shader BeginScene", hr);
+		state->Release();
+		return FALSE;
+	}
+	scene_started = TRUE;
+
+#define CRT_SHADER_SET(call, label) do { hr = (call); if (FAILED(hr)) { scrnmngD3D_crtlog((label), hr); goto crt_shader_finish; } } while (0)
+	CRT_SHADER_SET(d3d.d3ddev->SetPixelShader(crt_pixel_shader), "SetPixelShader");
+	CRT_SHADER_SET(d3d.d3ddev->SetVertexShader(NULL), "SetVertexShader");
+	CRT_SHADER_SET(d3d.d3ddev->SetTexture(0, crt_shader_texture), "SetTexture");
+	CRT_SHADER_SET(d3d.d3ddev->SetPixelShaderConstantF(0, constants, 2), "SetPixelShaderConstantF");
+	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ZENABLE, FALSE), "Shader ZENABLE");
+	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE), "Shader ALPHABLENDENABLE");
+	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE), "Shader CULLMODE");
+	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE), "Shader SCISSORTESTENABLE");
+	CRT_SHADER_SET(d3d.d3ddev->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT), "Shader MINFILTER");
+	CRT_SHADER_SET(d3d.d3ddev->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT), "Shader MAGFILTER");
+	CRT_SHADER_SET(d3d.d3ddev->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP), "Shader ADDRESSU");
+	CRT_SHADER_SET(d3d.d3ddev->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP), "Shader ADDRESSV");
+	CRT_SHADER_SET(d3d.d3ddev->SetFVF(D3DFVF_XYZRHW | D3DFVF_TEX2), "Shader SetFVF");
+	hr = d3d.d3ddev->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2,
+		vertices, sizeof(CRTSHADERVERTEX));
+	if (FAILED(hr)) {
+		scrnmngD3D_crtlog("Shader DrawPrimitiveUP", hr);
+		goto crt_shader_finish;
+	}
+
+crt_shader_finish:
+#undef CRT_SHADER_SET
+	if (scene_started) {
+		HRESULT end_result = d3d.d3ddev->EndScene();
+		if (FAILED(end_result))
+			scrnmngD3D_crtlog("CRT shader EndScene", end_result);
+	}
+	hr = state->Apply();
+	if (FAILED(hr))
+		scrnmngD3D_crtlog("CRT shader state Apply", hr);
+	state->Release();
+	return SUCCEEDED(hr);
+}
+
+static void scrnmngD3D_applycrt(const RECT *area)
+{
+	if (!scrnmngD3D_applycrt_shader(area))
+		scrnmngD3D_applycrt_fallback(area);
 }
 
 void scrnmngD3D_setcrt(BOOL enabled, float scanline_strength) {
