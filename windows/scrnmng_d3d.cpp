@@ -1729,9 +1729,11 @@ static const char crt_shader_source[] =
 	"  float3 mask = (x3 < 1.0) ? float3(1.60, 0.40, 0.40) : ((x3 < 2.0) ? float3(0.40, 1.60, 0.40) : float3(0.40, 0.40, 1.60));\n"
 	"  color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);\n"
 	"  color.rgb *= 1.0 - EffectStrengths.x * 0.35 * abs(phase * 2.0 - 1.0);\n"
-	"  // Tube shadow: wide falloff from the border, rounded corners.\n"
-	"  float2 tube = max(abs(centered) - 0.55, 0.0);\n"
-	"  color.rgb *= 1.0 - EffectStrengths.y * saturate(dot(tube, tube) * 2.2);\n"
+	"  // CRT glass edge falloff: preserve the center and fade smoothly to black at the edges.\n"
+	"  float edge = max(abs(centered.x), abs(centered.y));\n"
+	"  float edgeFade = saturate((edge - 0.72) / 0.28);\n"
+	"  edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);\n"
+	"  color.rgb *= 1.0 - EffectStrengths.y * edgeFade;\n"
 	"  return color;\n"
 	"}\n";
 
