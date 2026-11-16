@@ -60,6 +60,13 @@ void scrnmng_setcrt(BOOL enabled, float strength)
 #endif
 }
 
+void scrnmng_setcrteffects(float rgb_mask, float vignette, float curvature, float glow)
+{
+#ifdef SUPPORT_SCRN_DIRECT3D
+	scrnmngD3D_setcrteffects(rgb_mask, vignette, curvature, glow);
+#endif
+}
+
 BOOL scrnmng_getcrtenabled(void) { return scrnmng_crt_enabled; }
 float scrnmng_getcrtstrength(void) { return scrnmng_crt_strength; }
 
