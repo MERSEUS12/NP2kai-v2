@@ -26,8 +26,8 @@ float4 main(PixelInput input) : COLOR0
     float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));
     color.rgb *= scan;
     float stripe = fmod(floor(input.uv.x * FrameSize.x), 3.0);
-    float3 mask = (stripe < 1.0) ? float3(1.0, 0.72, 0.72) :
-        ((stripe < 2.0) ? float3(0.72, 1.0, 0.72) : float3(0.72, 0.72, 1.0));
+    float3 mask = (stripe < 1.0) ? float3(1.0, 0.90, 0.90) :
+        ((stripe < 2.0) ? float3(0.90, 1.0, 0.90) : float3(0.90, 0.90, 1.0));
     color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);
     float vignette = saturate(1.0 - dot(centered, centered) * EffectStrengths.y);
     color.rgb *= vignette;
