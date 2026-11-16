@@ -28,8 +28,19 @@ float4 main(PixelInput input) : COLOR0
     float stripe = fmod(floor(input.uv.x * FrameSize.x), 3.0);
     float3 mask = (stripe < 1.0) ? float3(1.0, 0.90, 0.90) :
         ((stripe < 2.0) ? float3(0.90, 1.0, 0.90) : float3(0.90, 0.90, 1.0));
+    // Preserve perceived luminance while retaining the RGB phosphor pattern.
+    float mask_luma_before = dot(color.rgb, float3(0.299, 0.587, 0.114));
     color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);
-    float vignette = saturate(1.0 - dot(centered, centered) * EffectStrengths.y);
+    float mask_luma_after = dot(color.rgb, float3(0.299, 0.587, 0.114));
+    color.rgb = saturate(color.rgb * (mask_luma_before / max(mask_luma_after, 0.0001)));
+    // Rectangular edge-only vignette: the center stays untouched.
+    float edge_x = saturate((abs(centered.x) - 0.84) / 0.16);
+    float edge_y = saturate((abs(centered.y) - 0.84) / 0.16);
+    edge_x = edge_x * edge_x * (3.0 - 2.0 * edge_x);
+    edge_y = edge_y * edge_y * (3.0 - 2.0 * edge_y);
+    float edge = max(edge_x, edge_y);
+    float corner = min(edge_x, edge_y);
+    float vignette = saturate(1.0 - EffectStrengths.y * (edge * 0.18 + corner * 0.08));
     color.rgb *= vignette;
     return color;
 }
