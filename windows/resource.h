@@ -952,3 +952,8 @@
 #define IDM_CRT_STRENGTH_LOW            43616
 #define IDM_CRT_STRENGTH_MEDIUM         43632
 #define IDM_CRT_STRENGTH_HIGH           43648
+
+#define IDM_CRT_RGB_MASK                43664
+#define IDM_CRT_VIGNETTE                43680
+#define IDM_CRT_CURVATURE               43696
+#define IDM_CRT_GLOW                    43712
