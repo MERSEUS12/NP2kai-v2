@@ -657,7 +657,10 @@ def api_play(gid):
                 _preparar_hdd(exe, g["path"])      # .hdi/.nhd/.thd -> HDD IDE 0
             elif ext in CD_EXT:
                 _preparar_cd(exe, g["path"])       # .iso/.cue/... -> CD-ROM IDE
-            subprocess.Popen([exe], cwd=os.path.dirname(exe))
+            # HDD y CD se configuran mediante el INI; los demas formatos
+            # conservan la apertura historica pasando la imagen como argumento.
+            args = [exe] if (ext in HDD_EXT or ext in CD_EXT) else [exe, g["path"]]
+            subprocess.Popen(args, cwd=os.path.dirname(exe))
     except Exception as e:
         return {"ok": False, "error": f"No se pudo abrir el emulador: {e}"}
     with LOCK:
