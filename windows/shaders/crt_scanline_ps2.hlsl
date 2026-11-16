@@ -13,11 +13,14 @@ float4 main(PixelInput input) : COLOR0
     float2 warped = input.uv + centered * dot(centered, centered) * curve * 0.5;
     float4 color = tex2D(FrameSampler, warped);
     float2 texel = FrameSize.zw;
-    float3 glow = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;
-    glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;
-    glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;
-    glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;
-    color.rgb = lerp(color.rgb, max(color.rgb, glow * 0.25), EffectStrengths.w);
+    if (EffectStrengths.w > 0.001)
+    {
+        float3 glow = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;
+        glow += tex2D(FrameSampler, warped - float2(texel.x, 0.0)).rgb;
+        glow += tex2D(FrameSampler, warped + float2(0.0, texel.y)).rgb;
+        glow += tex2D(FrameSampler, warped - float2(0.0, texel.y)).rgb;
+        color.rgb = lerp(color.rgb, max(color.rgb, glow * 0.25), EffectStrengths.w);
+    }
     float phase = frac(input.scan_uv.y * PixelHeight);
     float scan = 1.0 - ScanlineStrength * (0.5 - 0.5 * cos(phase * 6.2831853));
     color.rgb *= scan;
