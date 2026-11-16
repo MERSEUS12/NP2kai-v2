@@ -208,6 +208,11 @@ void sysmenu_initialize(HMENU hMenu)
 	AppendMenu(hMenu, MF_STRING, IDM_CRT_STRENGTH_LOW, TEXT("CRT intensity: Low"));
 	AppendMenu(hMenu, MF_STRING, IDM_CRT_STRENGTH_MEDIUM, TEXT("CRT intensity: Medium"));
 	AppendMenu(hMenu, MF_STRING, IDM_CRT_STRENGTH_HIGH, TEXT("CRT intensity: High"));
+	AppendMenu(hMenu, MF_SEPARATOR, 0, NULL);
+	AppendMenu(hMenu, MF_STRING, IDM_CRT_RGB_MASK, TEXT("CRT test: RGB mask"));
+	AppendMenu(hMenu, MF_STRING, IDM_CRT_VIGNETTE, TEXT("CRT test: Vignette"));
+	AppendMenu(hMenu, MF_STRING, IDM_CRT_CURVATURE, TEXT("CRT test: Curvature"));
+	AppendMenu(hMenu, MF_STRING, IDM_CRT_GLOW, TEXT("CRT test: Glow"));
 	if (np2oscfg.I286SAVE)
 	{
 #if defined(CPUCORE_IA32) && defined(SUPPORT_MEMDBG32)
@@ -237,6 +242,12 @@ void sysmenu_update(HMENU hMenu)
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_LOW, MF_BYCOMMAND | MFCHECK(crtStrength < 0.30f));
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_MEDIUM, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.30f && crtStrength < 0.50f));
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_HIGH, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.50f));
+	float crtRgbMask, crtVignette, crtCurvature, crtGlow;
+	scrnmng_getcrteffects(&crtRgbMask, &crtVignette, &crtCurvature, &crtGlow);
+	CheckMenuItem(hMenu, IDM_CRT_RGB_MASK, MF_BYCOMMAND | MFCHECK(crtRgbMask > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_VIGNETTE, MF_BYCOMMAND | MFCHECK(crtVignette > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_CURVATURE, MF_BYCOMMAND | MFCHECK(crtCurvature > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_GLOW, MF_BYCOMMAND | MFCHECK(crtGlow > 0.0f));
 	const int scrnmul = scrnmng_getmultiple();
 	CheckMenuItem(hMenu, IDM_ALLOWRESIZE, MF_BYCOMMAND | MFCHECK(np2oscfg.thickframe));
 	CheckMenuItem(hMenu, IDM_SAVEWINDOWSIZE, MF_BYCOMMAND | MFCHECK(np2oscfg.svscrmul));
@@ -382,6 +393,12 @@ void xmenu_update(HMENU hMenu)
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_LOW, MF_BYCOMMAND | MFCHECK(crtStrength < 0.30f));
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_MEDIUM, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.30f && crtStrength < 0.50f));
 	CheckMenuItem(hMenu, IDM_CRT_STRENGTH_HIGH, MF_BYCOMMAND | MFCHECK(crtStrength >= 0.50f));
+	float crtRgbMask, crtVignette, crtCurvature, crtGlow;
+	scrnmng_getcrteffects(&crtRgbMask, &crtVignette, &crtCurvature, &crtGlow);
+	CheckMenuItem(hMenu, IDM_CRT_RGB_MASK, MF_BYCOMMAND | MFCHECK(crtRgbMask > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_VIGNETTE, MF_BYCOMMAND | MFCHECK(crtVignette > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_CURVATURE, MF_BYCOMMAND | MFCHECK(crtCurvature > 0.0f));
+	CheckMenuItem(hMenu, IDM_CRT_GLOW, MF_BYCOMMAND | MFCHECK(crtGlow > 0.0f));
 
 	// Device-Keyboard
 	const UINT8 KEY_MODE = np2cfg.KEY_MODE;
