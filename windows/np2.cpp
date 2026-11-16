@@ -129,6 +129,17 @@ static	TCHAR		szClassName[] = _T("NP2-MainWindow");
 
 // Frontend IPC: WM_COPYDATA carries a UTF-16 path to an HDD image.
 static const ULONG_PTR NP2_FRONTEND_COPYDATA_ID = 0x50433938; // "PC98"
+// Versioned frontend IPC for native save-state operations (separate from HDD mounting).
+static const ULONG_PTR NP2_FRONTEND_STATE_COPYDATA_ID = 0x50433939; // "PC99"
+#if defined(SUPPORT_STATSAVE)
+struct NP2FrontendStateCommand {
+	DWORD magic;
+	UINT16 version;
+	UINT8 operation; // 1 = save, 2 = load
+	UINT8 slot;      // 0..SUPPORT_STATSAVE-1
+};
+static const DWORD NP2_FRONTEND_STATE_MAGIC = 0x4e503253; // "NP2S"
+#endif
 		HWND		g_hWndMain;
 		HINSTANCE	g_hInstance;
 #if !defined(_WIN64)
@@ -2444,8 +2455,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int i;
 			BOOL mounted = FALSE;
 
-			if (cds == NULL || cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
-				cds->lpData == NULL || cds->cbData < sizeof(TCHAR) ||
+			if (cds == NULL || cds->lpData == NULL)
+			{
+				return FALSE;
+			}
+
+#if defined(SUPPORT_STATSAVE)
+			if (cds->dwData == NP2_FRONTEND_STATE_COPYDATA_ID)
+			{
+				NP2FrontendStateCommand command;
+				OEMCHAR ext[4];
+				int result;
+
+				if (cds->cbData != sizeof(command))
+				{
+					return FALSE;
+				}
+				CopyMemory(&command, cds->lpData, sizeof(command));
+				if (command.magic != NP2_FRONTEND_STATE_MAGIC ||
+					command.version != 1 ||
+					command.slot >= SUPPORT_STATSAVE ||
+					(command.operation != 1 && command.operation != 2))
+				{
+					return FALSE;
+				}
+
+				OEMSPRINTF(ext, np2flagext, command.slot);
+				if (command.operation == 1)
+				{
+					result = flagsave(ext);
+					return (result == STATFLAG_FAILURE) ? 0 : 1;
+				}
+				return (flagload(hWnd, ext, _T("Frontend Status Load"), TRUE) == IDYES) ? 1 : 0;
+			}
+#endif
+
+			if (cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
+				cds->cbData < sizeof(TCHAR) ||
 				cds->cbData > sizeof(tpath) || (cds->cbData % sizeof(TCHAR)) != 0)
 			{
 				return FALSE;
