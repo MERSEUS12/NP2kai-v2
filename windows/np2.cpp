@@ -4031,6 +4031,27 @@ LRESULT CALLBACK LowLevelKeyboardProc(INT nCode, WPARAM wParam, LPARAM lParam)
 }
 #endif
 
+#if defined(SUPPORT_STATSAVE)
+// Process queued state operations on the emulator thread, matching the SDL loop.
+static void processstatrequest(void)
+{
+	const UINT8 request = g_u8ControlState;
+	if (request == 0)
+	{
+		return;
+	}
+	g_u8ControlState = 0;
+	if (request == 1)
+	{
+		statsave_save_d();
+	}
+	else if (request == 2)
+	{
+		statsave_load_d();
+	}
+}
+#endif
+
 /**
  * 1フレーム実行
  * @param[in] bDraw 描画フラグ
@@ -4042,6 +4063,9 @@ static void ExecuteOneFrame_MT_EmulateThread(BOOL bDraw)
 		bDraw = TRUE;
 	}
 
+#if defined(SUPPORT_STATSAVE)
+	processstatrequest();
+#endif
 	pccore_exec(bDraw);
 
 	recvideo_write();
