@@ -32,8 +32,10 @@ float4 main(PixelInput input) : COLOR0
         ((x3 < 2.0) ? float3(0.40, 1.60, 0.40) : float3(0.40, 0.40, 1.60));
     color.rgb *= lerp(float3(1.0, 1.0, 1.0), mask, EffectStrengths.x);
     color.rgb *= 1.0 - EffectStrengths.x * 0.35 * abs(phase * 2.0 - 1.0);
-    // Tube shadow: wide falloff from the border, rounded corners.
-    float2 tube = max(abs(centered) - 0.55, 0.0);
-    color.rgb *= 1.0 - EffectStrengths.y * saturate(dot(tube, tube) * 2.2);
+    // CRT glass edge falloff: preserve the center and fade smoothly to black at the edges.
+    float edge = max(abs(centered.x), abs(centered.y));
+    float edgeFade = saturate((edge - 0.72) / 0.28);
+    edgeFade = edgeFade * edgeFade * (3.0 - 2.0 * edgeFade);
+    color.rgb *= 1.0 - EffectStrengths.y * edgeFade;
     return color;
 }
