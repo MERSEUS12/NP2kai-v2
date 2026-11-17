@@ -2375,7 +2375,7 @@ void scrnmngD3D_update(void) {
 				d3d_leave_criticalsection();
 				return;
 			}
-			scrnmngD3D_reportfps();
+			if (SUCCEEDED(present_result)) scrnmngD3D_reportfps();
 		}else{
 			if (d3d.scrnmode & SCRNMODE_FULLSCREEN) {
 				if (scrnmng.allflash) {
@@ -2450,7 +2450,7 @@ void scrnmngD3D_update(void) {
 				d3d_leave_criticalsection();
 				return;
 			}
-			scrnmngD3D_reportfps();
+			if (SUCCEEDED(present_result)) scrnmngD3D_reportfps();
 		}
 	}
 	d3d_leave_criticalsection();
