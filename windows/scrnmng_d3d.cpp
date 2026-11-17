@@ -2066,13 +2066,14 @@ static void scrnmngD3D_pollcrtcontrol(void)
     static FILETIME last_write = { 0, 0 };
     static DWORD next_poll = 0;
     static int last_applied_volume = -1;
+    static int last_applied_multiple = -1;
     DWORD now = GetTickCount();
     WIN32_FILE_ATTRIBUTE_DATA attributes;
     HANDLE file;
     char json[2048];
     DWORD bytes_read = 0;
     BOOL enabled, scan_enabled, mask_enabled, vignette_enabled, glow_enabled, curvature_enabled, muted;
-    float scan, mask, vignette, glow, curvature, brightness, contrast, volume;
+    float scan, mask, vignette, glow, curvature, brightness, contrast, volume, multiple;
 
     if ((LONG)(now - next_poll) < 0)
         return;
@@ -2116,6 +2117,7 @@ static void scrnmngD3D_pollcrtcontrol(void)
     contrast = scrnmngD3D_crtcontrol_number(json, "\"contrast\"", 100.0f, 200.0f);
     volume = scrnmngD3D_crtcontrol_number(json, "\"volume\"", 100.0f, 100.0f);
     muted = scrnmngD3D_crtcontrol_bool(json, "\"muted\"", FALSE);
+    multiple = scrnmngD3D_crtcontrol_number(json, "\"multiple\"", 8.0f, 32.0f);
 
     if (!enabled) {
         scan_enabled = mask_enabled = vignette_enabled = glow_enabled = curvature_enabled = FALSE;
@@ -2127,6 +2129,12 @@ static void scrnmngD3D_pollcrtcontrol(void)
         glow_enabled ? glow * 0.01f : 0.0f);
     crt_brightness = (brightness - 100.0f) * 0.01f;
     crt_contrast = contrast * 0.01f;
+    if ((multiple == 4.0f || multiple == 6.0f || multiple == 8.0f ||
+        multiple == 10.0f || multiple == 12.0f || multiple == 16.0f ||
+        multiple == 24.0f || multiple == 32.0f) && (int)multiple != last_applied_multiple) {
+        scrnmng_setmultiple((int)multiple);
+        last_applied_multiple = (int)multiple;
+    }
     {
         int applied_volume = muted ? 0 : (int)volume;
         if (applied_volume != last_applied_volume) {
