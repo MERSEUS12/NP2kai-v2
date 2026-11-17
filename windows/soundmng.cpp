@@ -433,6 +433,10 @@ void CSoundMng::SetMasterVolume(int nVolume)
 		/* Keep auxiliary PCM buffers in step with the main mixed stream. */
 		m_pSoundDevice->SetMasterVolume(nVolume);
 	}
+#if defined(SUPPORT_FDDSNDDEV)
+	/* Keep separately routed floppy/board sounds under the same emulator volume. */
+	fddsndout_setvolume(nVolume);
+#endif
 	LeaveSoundCriticalSection();
 }
 
