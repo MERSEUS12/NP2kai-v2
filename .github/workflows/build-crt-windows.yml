@@ -5,6 +5,7 @@ on:
     branches:
       - feature/crt-shader
       - fix/crt-control-preserve-settings
+      - feature/d3d9-fps-telemetry
   workflow_dispatch:
 
 permissions:
