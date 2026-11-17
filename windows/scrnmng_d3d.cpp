@@ -23,6 +23,7 @@
 #include "mousemng.h"
 #include "scrnmng.h"
 #include "scrnmng_d3d.h"
+#include "soundmng.h"
 // #include "sysmng.h"
 #include "dialog\np2class.h"
 #include "pccore.h"
@@ -1698,6 +1699,8 @@ static float crt_rgb_mask_strength = 0.0f;
 static float crt_vignette_strength = 0.0f;
 static float crt_curvature_strength = 0.0f;
 static float crt_glow_strength = 0.0f;
+static float crt_brightness = 0.0f;
+static float crt_contrast = 1.0f;
 
 static const char crt_shader_source[] =
 	"sampler2D FrameSampler : register(s0);\n"
@@ -1706,11 +1709,13 @@ static const char crt_shader_source[] =
 	"// EffectStrengths: RGB mask, vignette, curvature*0.04, glow\n"
 	"float4 EffectStrengths : register(c2);\n"
 	"float4 FrameSize : register(c3);\n"
+	"float4 ImageAdjust : register(c4); // x=contrast, y=brightness\n"
 	"struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };\n"
 	"float4 main(PixelInput input) : COLOR0 {\n"
 	"  float2 centered = input.scan_uv * 2.0 - 1.0;\n"
 	"  float2 warped = input.uv + centered * dot(centered, centered) * EffectStrengths.z;\n"
 	"  float4 color = tex2D(FrameSampler, warped);\n"
+	"  color.rgb = saturate((color.rgb - 0.5) * ImageAdjust.x + 0.5 + ImageAdjust.y);\n"
 	"  float2 texel = FrameSize.zw * 2.0;\n"
 	"  if (EffectStrengths.w > 0.001) {\n"
 	"    float3 h0 = tex2D(FrameSampler, warped + float2(texel.x, 0.0)).rgb;\n"
@@ -1818,7 +1823,7 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	D3DSURFACE_DESC desc;
 	CRTSHADERVERTEX vertices[4];
 	RECT clipped;
-	float constants[16] = { 0 };
+	float constants[20] = { 0 };
 	float strength;
 	UINT i;
 	HRESULT hr;
@@ -1827,7 +1832,8 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 
 	if ((!crt_scanlines_enabled && crt_rgb_mask_strength <= 0.001f &&
 		crt_vignette_strength <= 0.001f && crt_curvature_strength <= 0.001f &&
-		crt_glow_strength <= 0.001f) || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
+		crt_glow_strength <= 0.001f && crt_brightness >= -0.0001f && crt_brightness <= 0.0001f &&
+		(crt_contrast >= 0.9999f && crt_contrast <= 1.0001f)) || !area || !d3d.d3ddev || !d3d.d3dbacksurf)
 		return FALSE;
 	if (crt_shader_failed)
 		return FALSE;
@@ -1939,6 +1945,8 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	constants[13] = (float)desc.Height;
 	constants[14] = 1.0f / (float)desc.Width;
 	constants[15] = 1.0f / (float)desc.Height;
+	constants[16] = crt_contrast;
+	constants[17] = crt_brightness;
 
 	hr = d3d.d3ddev->BeginScene();
 	if (FAILED(hr)) {
@@ -1952,7 +1960,7 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	CRT_SHADER_SET(d3d.d3ddev->SetPixelShader(crt_pixel_shader), "SetPixelShader");
 	CRT_SHADER_SET(d3d.d3ddev->SetVertexShader(NULL), "SetVertexShader");
 	CRT_SHADER_SET(d3d.d3ddev->SetTexture(0, crt_shader_texture), "SetTexture");
-	CRT_SHADER_SET(d3d.d3ddev->SetPixelShaderConstantF(0, constants, 4), "SetPixelShaderConstantF");
+	CRT_SHADER_SET(d3d.d3ddev->SetPixelShaderConstantF(0, constants, 5), "SetPixelShaderConstantF");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ZENABLE, FALSE), "Shader ZENABLE");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE), "Shader ALPHABLENDENABLE");
 	CRT_SHADER_SET(d3d.d3ddev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE), "Shader CULLMODE");
@@ -2031,7 +2039,7 @@ static BOOL scrnmngD3D_crtcontrol_bool(const char *json, const char *key, BOOL f
     return fallback;
 }
 
-static float scrnmngD3D_crtcontrol_number(const char *json, const char *key, float fallback)
+static float scrnmngD3D_crtcontrol_number(const char *json, const char *key, float fallback, float maximum)
 {
     const char *value = strstr(json, key);
     char *end = NULL;
@@ -2043,7 +2051,7 @@ static float scrnmngD3D_crtcontrol_number(const char *json, const char *key, flo
     if (end == value)
         return fallback;
     if (parsed < 0.0) parsed = 0.0;
-    if (parsed > 100.0) parsed = 100.0;
+    if (parsed > maximum) parsed = maximum;
     return (float)parsed;
 }
 
@@ -2057,13 +2065,14 @@ static void scrnmngD3D_pollcrtcontrol(void)
     static wchar_t control_path[MAX_PATH] = { 0 };
     static FILETIME last_write = { 0, 0 };
     static DWORD next_poll = 0;
+    static int last_applied_volume = -1;
     DWORD now = GetTickCount();
     WIN32_FILE_ATTRIBUTE_DATA attributes;
     HANDLE file;
     char json[2048];
     DWORD bytes_read = 0;
-    BOOL enabled, scan_enabled, mask_enabled, vignette_enabled, glow_enabled, curvature_enabled;
-    float scan, mask, vignette, glow, curvature;
+    BOOL enabled, scan_enabled, mask_enabled, vignette_enabled, glow_enabled, curvature_enabled, muted;
+    float scan, mask, vignette, glow, curvature, brightness, contrast, volume;
 
     if ((LONG)(now - next_poll) < 0)
         return;
@@ -2098,11 +2107,15 @@ static void scrnmngD3D_pollcrtcontrol(void)
     vignette_enabled = scrnmngD3D_crtcontrol_bool(json, "\"vignetteEnabled\"", TRUE);
     glow_enabled = scrnmngD3D_crtcontrol_bool(json, "\"glowEnabled\"", TRUE);
     curvature_enabled = scrnmngD3D_crtcontrol_bool(json, "\"curvatureEnabled\"", FALSE);
-    scan = scrnmngD3D_crtcontrol_number(json, "\"scan\"", 28.0f);
-    mask = scrnmngD3D_crtcontrol_number(json, "\"mask\"", 12.0f);
-    vignette = scrnmngD3D_crtcontrol_number(json, "\"vignette\"", 18.0f);
-    glow = scrnmngD3D_crtcontrol_number(json, "\"glow\"", 10.0f);
-    curvature = scrnmngD3D_crtcontrol_number(json, "\"curvature\"", 0.0f);
+    scan = scrnmngD3D_crtcontrol_number(json, "\"scan\"", 28.0f, 100.0f);
+    mask = scrnmngD3D_crtcontrol_number(json, "\"mask\"", 12.0f, 100.0f);
+    vignette = scrnmngD3D_crtcontrol_number(json, "\"vignette\"", 18.0f, 100.0f);
+    glow = scrnmngD3D_crtcontrol_number(json, "\"glow\"", 10.0f, 100.0f);
+    curvature = scrnmngD3D_crtcontrol_number(json, "\"curvature\"", 0.0f, 100.0f);
+    brightness = scrnmngD3D_crtcontrol_number(json, "\"brightness\"", 100.0f, 200.0f);
+    contrast = scrnmngD3D_crtcontrol_number(json, "\"contrast\"", 100.0f, 200.0f);
+    volume = scrnmngD3D_crtcontrol_number(json, "\"volume\"", 100.0f, 100.0f);
+    muted = scrnmngD3D_crtcontrol_bool(json, "\"muted\"", FALSE);
 
     if (!enabled) {
         scan_enabled = mask_enabled = vignette_enabled = glow_enabled = curvature_enabled = FALSE;
@@ -2112,6 +2125,15 @@ static void scrnmngD3D_pollcrtcontrol(void)
         vignette_enabled ? vignette * 0.01f : 0.0f,
         curvature_enabled ? curvature * 0.01f : 0.0f,
         glow_enabled ? glow * 0.01f : 0.0f);
+    crt_brightness = (brightness - 100.0f) * 0.01f;
+    crt_contrast = contrast * 0.01f;
+    {
+        int applied_volume = muted ? 0 : (int)volume;
+        if (applied_volume != last_applied_volume) {
+            soundmng_setvolume(applied_volume);
+            last_applied_volume = applied_volume;
+        }
+    }
     last_write = attributes.ftLastWriteTime;
     have_timestamp = TRUE;
 }

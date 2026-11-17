@@ -5,12 +5,14 @@ float ScanlineStrength : register(c0);
 float ScanPhaseScale : register(c1);      // half of the destination height
 float4 EffectStrengths : register(c2);
 float4 FrameSize : register(c3);          // width, height, 1/width, 1/height
+float4 ImageAdjust : register(c4);         // x=contrast, y=brightness
 struct PixelInput { float2 uv : TEXCOORD0; float2 scan_uv : TEXCOORD1; };
 float4 main(PixelInput input) : COLOR0
 {
     float2 centered = input.scan_uv * 2.0 - 1.0;
     float2 warped = input.uv + centered * dot(centered, centered) * EffectStrengths.z;
     float4 color = tex2D(FrameSampler, warped);
+    color.rgb = saturate((color.rgb - 0.5) * ImageAdjust.x + 0.5 + ImageAdjust.y);
     float2 texel = FrameSize.zw * 2.0;
     if (EffectStrengths.w > 0.001)
     {
