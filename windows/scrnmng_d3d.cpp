@@ -12,6 +12,7 @@
 #include <d3d9.h>
 #include <d3dcompiler.h>
 #include <stdlib.h>
+#include <string.h>
 #ifndef __GNUC__
 #include <winnls32.h>
 #endif
@@ -2018,7 +2019,105 @@ void scrnmngD3D_setcrteffects(float rgb_mask, float vignette, float curvature, f
 	crt_glow_strength = glow;
 }
 
+static BOOL scrnmngD3D_crtcontrol_bool(const char *json, const char *key, BOOL fallback)
+{
+    const char *value = strstr(json, key);
+    if (!value || !(value = strchr(value, ':')))
+        return fallback;
+    value++;
+    while (*value == ' ' || *value == '\\t' || *value == '\\r' || *value == '\\n') value++;
+    if (!strncmp(value, "true", 4)) return TRUE;
+    if (!strncmp(value, "false", 5)) return FALSE;
+    return fallback;
+}
+
+static float scrnmngD3D_crtcontrol_number(const char *json, const char *key, float fallback)
+{
+    const char *value = strstr(json, key);
+    char *end = NULL;
+    double parsed;
+    if (!value || !(value = strchr(value, ':')))
+        return fallback;
+    value++;
+    parsed = strtod(value, &end);
+    if (end == value)
+        return fallback;
+    if (parsed < 0.0) parsed = 0.0;
+    if (parsed > 100.0) parsed = 100.0;
+    return (float)parsed;
+}
+
+/* Read the launcher-owned JSON only four times per second and only apply it
+ * when its last-write timestamp changes. The launcher replaces the file
+ * atomically, so NP2kai never observes a partially-written profile. */
+static void scrnmngD3D_pollcrtcontrol(void)
+{
+    static BOOL path_checked = FALSE;
+    static BOOL have_timestamp = FALSE;
+    static wchar_t control_path[MAX_PATH] = { 0 };
+    static FILETIME last_write = { 0, 0 };
+    static DWORD next_poll = 0;
+    DWORD now = GetTickCount();
+    WIN32_FILE_ATTRIBUTE_DATA attributes;
+    HANDLE file;
+    char json[2048];
+    DWORD bytes_read = 0;
+    BOOL enabled, scan_enabled, mask_enabled, vignette_enabled, glow_enabled, curvature_enabled;
+    float scan, mask, vignette, glow, curvature;
+
+    if ((LONG)(now - next_poll) < 0)
+        return;
+    next_poll = now + 250;
+
+    if (!path_checked) {
+        path_checked = TRUE;
+        if (!GetEnvironmentVariableW(L"NP2KAI_CRT_CONTROL_FILE", control_path, MAX_PATH))
+            return;
+    }
+    if (!control_path[0] || !GetFileAttributesExW(control_path, GetFileExInfoStandard, &attributes))
+        return;
+    if (have_timestamp && CompareFileTime(&attributes.ftLastWriteTime, &last_write) == 0)
+        return;
+
+    file = CreateFileW(control_path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE)
+        return;
+    if (!ReadFile(file, json, sizeof(json) - 1, &bytes_read, NULL)) {
+        CloseHandle(file);
+        return;
+    }
+    CloseHandle(file);
+    if (!bytes_read)
+        return;
+    json[bytes_read] = 0;
+
+    enabled = scrnmngD3D_crtcontrol_bool(json, "\\"enabled\\"", TRUE);
+    scan_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"scanEnabled\\"", TRUE);
+    mask_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"maskEnabled\\"", TRUE);
+    vignette_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"vignetteEnabled\\"", TRUE);
+    glow_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"glowEnabled\\"", TRUE);
+    curvature_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"curvatureEnabled\\"", FALSE);
+    scan = scrnmngD3D_crtcontrol_number(json, "\\"scan\\"", 28.0f);
+    mask = scrnmngD3D_crtcontrol_number(json, "\\"mask\\"", 12.0f);
+    vignette = scrnmngD3D_crtcontrol_number(json, "\\"vignette\\"", 18.0f);
+    glow = scrnmngD3D_crtcontrol_number(json, "\\"glow\\"", 10.0f);
+    curvature = scrnmngD3D_crtcontrol_number(json, "\\"curvature\\"", 0.0f);
+
+    if (!enabled) {
+        scan_enabled = mask_enabled = vignette_enabled = glow_enabled = curvature_enabled = FALSE;
+    }
+    scrnmngD3D_setcrt(scan_enabled, scan_enabled ? (scan * 0.0075f) : 0.0f);
+    scrnmngD3D_setcrteffects(mask_enabled ? mask * 0.01f : 0.0f,
+        vignette_enabled ? vignette * 0.01f : 0.0f,
+        curvature_enabled ? curvature * 0.01f : 0.0f,
+        glow_enabled ? glow * 0.01f : 0.0f);
+    last_write = attributes.ftLastWriteTime;
+    have_timestamp = TRUE;
+}
+
 void scrnmngD3D_update(void) {
+	scrnmngD3D_pollcrtcontrol();
 	
 	if(d3d.d3ddev == NULL) return;
 	if(devicelostflag){
