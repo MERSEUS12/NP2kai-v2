@@ -87,7 +87,7 @@ public:
 	BOOL Stop(UINT nNum);
 
 private:
-	CSoundDeviceDSound3* BuildGroup(int nGroup, HWND hWnd, const OEMCHAR* lpDevice, int nVolume);
+	CSoundDeviceDSound3* BuildGroup(int nGroup, HWND hWnd, const OEMCHAR* lpDevice, int nVolume, int nMasterVolume);
 	void StopGroupLocked(int nGroup);	//!< stop this group's sounds on the aux device (m_cs held)
 	void StopGroupOnMain(int nGroup);	//!< stop this group's sounds on the main device (no lock)
 	int GroupOfPcm(UINT nNum) const;
