@@ -79,6 +79,7 @@ public:
 	~CFddSndOut();
 
 	void SetWindow(HWND hWnd);
+	void SetMasterVolume(int nVolume);
 	void Reconfig();
 	void Close();
 	void StopAll();
@@ -92,6 +93,7 @@ private:
 	int GroupOfPcm(UINT nNum) const;
 
 	HWND					m_hWnd;
+	int					m_mastervolume;
 	bool					m_enabled[FDDSND_GROUP_COUNT];
 	CSoundDeviceDSound3*	m_pDevice[FDDSND_GROUP_COUNT];
 	CRITICAL_SECTION		m_cs;
@@ -105,6 +107,7 @@ CFddSndOut& CFddSndOut::GetInstance()
 
 CFddSndOut::CFddSndOut()
 	: m_hWnd(NULL)
+	, m_mastervolume(100)
 {
 	for (int i = 0; i < FDDSND_GROUP_COUNT; i++)
 	{
@@ -147,7 +150,7 @@ int CFddSndOut::GroupOfPcm(UINT nNum) const
  * Build a group's aux device. Runs WITHOUT m_cs (Open() can block).
  * lpDevice == NULL or "" -> not separated (returns NULL => fall back to main).
  */
-CSoundDeviceDSound3* CFddSndOut::BuildGroup(int nGroup, HWND hWnd, const OEMCHAR* lpDevice, int nVolume)
+CSoundDeviceDSound3* CFddSndOut::BuildGroup(int nGroup, HWND hWnd, const OEMCHAR* lpDevice, int nVolume, int nMasterVolume)
 {
 	if ((hWnd == NULL) || (lpDevice == NULL) || (lpDevice[0] == '\0'))
 	{
@@ -162,6 +165,7 @@ CSoundDeviceDSound3* CFddSndOut::BuildGroup(int nGroup, HWND hWnd, const OEMCHAR
 		return NULL;
 	}
 
+	pDevice->SetMasterVolume(nMasterVolume);
 	const GroupDef& g = s_group[nGroup];
 	for (UINT i = 0; i < g.count; i++)
 	{
@@ -193,6 +197,24 @@ void CFddSndOut::StopGroupOnMain(int nGroup)
 	}
 }
 
+
+void CFddSndOut::SetMasterVolume(int nVolume)
+{
+	if (nVolume < 0) nVolume = 0;
+	else if (nVolume > 100) nVolume = 100;
+
+	::EnterCriticalSection(&m_cs);
+	m_mastervolume = nVolume;
+	for (int i = 0; i < FDDSND_GROUP_COUNT; i++)
+	{
+		if (m_pDevice[i])
+		{
+			m_pDevice[i]->SetMasterVolume(nVolume);
+		}
+	}
+	::LeaveCriticalSection(&m_cs);
+}
+
 void CFddSndOut::Reconfig()
 {
 	HWND hWnd;
@@ -200,6 +222,7 @@ void CFddSndOut::Reconfig()
 	OEMCHAR brdDev[MAX_PATH];
 	int fddVol;
 	int brdVol;
+	int masterVolume;
 
 	/* snapshot the desired configuration */
 	::EnterCriticalSection(&m_cs);
@@ -208,20 +231,27 @@ void CFddSndOut::Reconfig()
 	::lstrcpyn(brdDev, np2cfg.boardSndDevice, _countof(brdDev));
 	fddVol = np2cfg.fddSndVol;
 	brdVol = np2cfg.boardSndVol;
+	masterVolume = m_mastervolume;
 	::LeaveCriticalSection(&m_cs);
 
 	if (fddVol < 0) fddVol = 0; else if (fddVol > VOL_MAX) fddVol = VOL_MAX;
 	if (brdVol < 0) brdVol = 0; else if (brdVol > VOL_MAX) brdVol = VOL_MAX;
 
 	/* build the new devices OUTSIDE the lock */
-	CSoundDeviceDSound3* pNewFdd = BuildGroup(FDDSND_GROUP_FDD, hWnd, fddDev, fddVol);
-	CSoundDeviceDSound3* pNewBrd = BuildGroup(FDDSND_GROUP_BOARD, hWnd, brdDev, brdVol);
+	CSoundDeviceDSound3* pNewFdd = BuildGroup(FDDSND_GROUP_FDD, hWnd, fddDev, fddVol, masterVolume);
+	CSoundDeviceDSound3* pNewBrd = BuildGroup(FDDSND_GROUP_BOARD, hWnd, brdDev, brdVol, masterVolume);
 
 	CSoundDeviceDSound3* pOldFdd;
 	CSoundDeviceDSound3* pOldBrd;
 
 	/* swap atomically */
 	::EnterCriticalSection(&m_cs);
+	/* A volume change may have arrived while the replacement devices were built. */
+	if (masterVolume != m_mastervolume)
+	{
+		if (pNewFdd) pNewFdd->SetMasterVolume(m_mastervolume);
+		if (pNewBrd) pNewBrd->SetMasterVolume(m_mastervolume);
+	}
 	StopGroupLocked(FDDSND_GROUP_FDD);
 	pOldFdd = m_pDevice[FDDSND_GROUP_FDD];
 	m_pDevice[FDDSND_GROUP_FDD] = pNewFdd;
@@ -346,9 +376,14 @@ void fddsndout_setwindow(HWND hWnd)
 	CFddSndOut::GetInstance().SetWindow(hWnd);
 }
 
-void fddsndout_reconfig(void)
+	void fddsndout_reconfig(void)
 {
 	CFddSndOut::GetInstance().Reconfig();
+}
+
+void fddsndout_setvolume(int nVolume)
+{
+	CFddSndOut::GetInstance().SetMasterVolume(nVolume);
 }
 
 void fddsndout_close(void)
