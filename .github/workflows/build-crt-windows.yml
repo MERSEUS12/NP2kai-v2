@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/crt-shader
+      - fix/crt-control-preserve-settings
   workflow_dispatch:
 
 permissions:
