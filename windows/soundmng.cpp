@@ -167,6 +167,8 @@ bool CSoundMng::Open(DeviceType nType, LPCTSTR lpName, HWND hWnd)
 	}
 
 	m_pSoundDevice = pSoundDevice;
+	/* Restore the mixer's saved level whenever the output device is reopened. */
+	m_pSoundDevice->SetMasterVolume(m_nMasterVolume);
 
 #if defined(MT32SOUND_DLL)
 	MT32Sound::GetInstance()->Initialize();
