@@ -2158,6 +2158,41 @@ static void scrnmngD3D_pollcrtcontrol(void)
     have_timestamp = TRUE;
 }
 
+static void scrnmngD3D_reportfps(void) {
+	static char stats_path[MAX_PATH] = { 0 };
+	static BOOL path_checked = FALSE;
+	static DWORD interval_start = 0;
+	static DWORD presented_frames = 0;
+	DWORD now;
+	if (!path_checked) {
+		DWORD length = GetEnvironmentVariableA("NP2KAI_CRT_STATS_FILE", stats_path, sizeof(stats_path));
+		if (length == 0 || length >= sizeof(stats_path)) stats_path[0] = 0;
+		path_checked = TRUE;
+	}
+	if (!stats_path[0]) return;
+	now = GetTickCount();
+	presented_frames++;
+	if (interval_start == 0) {
+		interval_start = now;
+		return;
+	}
+	if ((DWORD)(now - interval_start) >= 1000) {
+		DWORD elapsed = now - interval_start;
+		DWORD fps = elapsed ? (presented_frames * 1000 + elapsed / 2) / elapsed : 0;
+		char data[64];
+		DWORD length = (DWORD)wsprintfA(data, "{\"fps\":%lu}", (unsigned long)fps);
+		HANDLE file = CreateFileA(stats_path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (file != INVALID_HANDLE_VALUE) {
+			DWORD written = 0;
+			WriteFile(file, data, length, &written, NULL);
+			CloseHandle(file);
+		}
+		presented_frames = 0;
+		interval_start = now;
+	}
+}
+
 void scrnmngD3D_update(void) {
 	scrnmngD3D_pollcrtcontrol();
 	
@@ -2334,11 +2369,13 @@ void scrnmngD3D_update(void) {
 			//	DrawMenuBar(g_hWndMain);
 			//}
 			if (crt_area_valid) scrnmngD3D_applycrt(&crt_area);
-			if(d3d.d3ddev->Present(NULL, NULL, NULL, NULL)==D3DERR_DEVICELOST){
+			HRESULT present_result = d3d.d3ddev->Present(NULL, NULL, NULL, NULL);
+			if (present_result == D3DERR_DEVICELOST) {
 				scrnmng_restore_pending = true;
 				d3d_leave_criticalsection();
 				return;
 			}
+			scrnmngD3D_reportfps();
 		}else{
 			if (d3d.scrnmode & SCRNMODE_FULLSCREEN) {
 				if (scrnmng.allflash) {
@@ -2407,11 +2444,13 @@ void scrnmngD3D_update(void) {
 			//	DrawMenuBar(g_hWndMain);
 			//}
 			if (crt_area_valid) scrnmngD3D_applycrt(&crt_area);
-			if(d3d.d3ddev->Present(NULL, NULL, NULL, NULL)==D3DERR_DEVICELOST){
+			HRESULT present_result = d3d.d3ddev->Present(NULL, NULL, NULL, NULL);
+			if (present_result == D3DERR_DEVICELOST) {
 				scrnmng_restore_pending = true;
 				d3d_leave_criticalsection();
 				return;
 			}
+			scrnmngD3D_reportfps();
 		}
 	}
 	d3d_leave_criticalsection();
