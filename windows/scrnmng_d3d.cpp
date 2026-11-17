@@ -2025,7 +2025,7 @@ static BOOL scrnmngD3D_crtcontrol_bool(const char *json, const char *key, BOOL f
     if (!value || !(value = strchr(value, ':')))
         return fallback;
     value++;
-    while (*value == ' ' || *value == '\\t' || *value == '\\r' || *value == '\\n') value++;
+    while (*value == ' ' || *value == '\t' || *value == '\r' || *value == '\n') value++;
     if (!strncmp(value, "true", 4)) return TRUE;
     if (!strncmp(value, "false", 5)) return FALSE;
     return fallback;
@@ -2092,17 +2092,17 @@ static void scrnmngD3D_pollcrtcontrol(void)
         return;
     json[bytes_read] = 0;
 
-    enabled = scrnmngD3D_crtcontrol_bool(json, "\\"enabled\\"", TRUE);
-    scan_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"scanEnabled\\"", TRUE);
-    mask_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"maskEnabled\\"", TRUE);
-    vignette_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"vignetteEnabled\\"", TRUE);
-    glow_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"glowEnabled\\"", TRUE);
-    curvature_enabled = scrnmngD3D_crtcontrol_bool(json, "\\"curvatureEnabled\\"", FALSE);
-    scan = scrnmngD3D_crtcontrol_number(json, "\\"scan\\"", 28.0f);
-    mask = scrnmngD3D_crtcontrol_number(json, "\\"mask\\"", 12.0f);
-    vignette = scrnmngD3D_crtcontrol_number(json, "\\"vignette\\"", 18.0f);
-    glow = scrnmngD3D_crtcontrol_number(json, "\\"glow\\"", 10.0f);
-    curvature = scrnmngD3D_crtcontrol_number(json, "\\"curvature\\"", 0.0f);
+    enabled = scrnmngD3D_crtcontrol_bool(json, "\"enabled\"", TRUE);
+    scan_enabled = scrnmngD3D_crtcontrol_bool(json, "\"scanEnabled\"", TRUE);
+    mask_enabled = scrnmngD3D_crtcontrol_bool(json, "\"maskEnabled\"", TRUE);
+    vignette_enabled = scrnmngD3D_crtcontrol_bool(json, "\"vignetteEnabled\"", TRUE);
+    glow_enabled = scrnmngD3D_crtcontrol_bool(json, "\"glowEnabled\"", TRUE);
+    curvature_enabled = scrnmngD3D_crtcontrol_bool(json, "\"curvatureEnabled\"", FALSE);
+    scan = scrnmngD3D_crtcontrol_number(json, "\"scan\"", 28.0f);
+    mask = scrnmngD3D_crtcontrol_number(json, "\"mask\"", 12.0f);
+    vignette = scrnmngD3D_crtcontrol_number(json, "\"vignette\"", 18.0f);
+    glow = scrnmngD3D_crtcontrol_number(json, "\"glow\"", 10.0f);
+    curvature = scrnmngD3D_crtcontrol_number(json, "\"curvature\"", 0.0f);
 
     if (!enabled) {
         scan_enabled = mask_enabled = vignette_enabled = glow_enabled = curvature_enabled = FALSE;
