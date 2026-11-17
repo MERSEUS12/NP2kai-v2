@@ -1926,16 +1926,12 @@ static BOOL scrnmngD3D_applycrt_shader(const RECT *area)
 	if (strength < 0.0f) strength = 0.0f;
 	if (strength > 0.75f) strength = 0.75f;
 	constants[0] = crt_scanlines_enabled ? strength : 0.0f;
-	/* CRT intensity is the master level for every effect, not only scanlines. */
-	{
-		float level = strength / 0.68f;
-		if (level < 0.0f) level = 0.0f;
-		if (level > 1.0f) level = 1.0f;
-		constants[8] = crt_rgb_mask_strength * level;
-		constants[9] = crt_vignette_strength * level;
-		constants[10] = crt_curvature_strength * 0.04f * level;
-		constants[11] = crt_glow_strength * level;
-	}
+	/* Each CRT effect has its own intensity. Scanlines no longer act as a
+	 * hidden master control for RGB mask, vignette, curvature or glow. */
+	constants[8] = crt_rgb_mask_strength;
+	constants[9] = crt_vignette_strength;
+	constants[10] = crt_curvature_strength * 0.04f;
+	constants[11] = crt_glow_strength;
 	/* The quad spans 'clipped'; half of it gives one cycle every two rows. */
 	constants[4] = (float)(clipped.bottom - clipped.top) * 0.5f;
 	constants[12] = (float)desc.Width;
