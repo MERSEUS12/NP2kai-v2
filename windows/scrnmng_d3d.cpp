@@ -2121,9 +2121,14 @@ static void scrnmngD3D_pollcrtcontrol(void)
     curvature = scrnmngD3D_crtcontrol_number(json, "\"curvature\"", 0.0f, 100.0f);
     brightness = scrnmngD3D_crtcontrol_number(json, "\"brightness\"", 100.0f, 200.0f);
     contrast = scrnmngD3D_crtcontrol_number(json, "\"contrast\"", 100.0f, 200.0f);
-    volume = scrnmngD3D_crtcontrol_number(json, "\"volume\"", 100.0f, 100.0f);
-    muted = scrnmngD3D_crtcontrol_bool(json, "\"muted\"", FALSE);
-    multiple = scrnmngD3D_crtcontrol_number(json, "\"multiple\"", 8.0f, 32.0f);
+    has_volume = scrnmngD3D_crtcontrol_has(json, "\"volume\"");
+    has_multiple = scrnmngD3D_crtcontrol_has(json, "\"multiple\"");
+    if (has_volume) {
+        volume = scrnmngD3D_crtcontrol_number(json, "\"volume\"", 100.0f, 100.0f);
+        muted = scrnmngD3D_crtcontrol_bool(json, "\"muted\"", FALSE);
+    }
+    if (has_multiple)
+        multiple = scrnmngD3D_crtcontrol_number(json, "\"multiple\"", 8.0f, 32.0f);
 
     if (!enabled) {
         scan_enabled = mask_enabled = vignette_enabled = glow_enabled = curvature_enabled = FALSE;
