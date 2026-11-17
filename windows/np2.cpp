@@ -129,6 +129,7 @@ static	TCHAR		szClassName[] = _T("NP2-MainWindow");
 
 // Frontend IPC: WM_COPYDATA carries a UTF-16 path to an HDD image.
 static const ULONG_PTR NP2_FRONTEND_COPYDATA_ID = 0x50433938; // "PC98"
+static const ULONG_PTR NP2_FRONTEND_VOLUME_COPYDATA_ID = 0x50433939; // "PC99"
 		HWND		g_hWndMain;
 		HINSTANCE	g_hInstance;
 #if !defined(_WIN64)
@@ -2424,8 +2425,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			int i;
 			BOOL mounted = FALSE;
 
-			if (cds == NULL || cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
-				cds->lpData == NULL || cds->cbData < sizeof(TCHAR) ||
+			if (cds == NULL || cds->lpData == NULL)
+			{
+				return FALSE;
+			}
+
+			// The frontend controls the emulator's own mixer, not Windows master volume.
+			if (cds->dwData == NP2_FRONTEND_VOLUME_COPYDATA_ID)
+			{
+				int nVolume;
+				if (cds->cbData != sizeof(nVolume))
+				{
+					return FALSE;
+				}
+				CopyMemory(&nVolume, cds->lpData, sizeof(nVolume));
+				if (nVolume < 0) nVolume = 0;
+				if (nVolume > 100) nVolume = 100;
+				np2_multithread_EnterCriticalSection();
+				np2cfg.vol_master = nVolume;
+				soundmng_setvolume(nVolume);
+				fmboard_updatevolume();
+				np2_multithread_LeaveCriticalSection();
+				return TRUE;
+			}
+
+			if (cds->dwData != NP2_FRONTEND_COPYDATA_ID ||
+				cds->cbData < sizeof(TCHAR) ||
 				cds->cbData > sizeof(tpath) || (cds->cbData % sizeof(TCHAR)) != 0)
 			{
 				return FALSE;
