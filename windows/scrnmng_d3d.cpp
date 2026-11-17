@@ -2039,6 +2039,11 @@ static BOOL scrnmngD3D_crtcontrol_bool(const char *json, const char *key, BOOL f
     return fallback;
 }
 
+static BOOL scrnmngD3D_crtcontrol_has(const char *json, const char *key)
+{
+    return strstr(json, key) != NULL;
+}
+
 static float scrnmngD3D_crtcontrol_number(const char *json, const char *key, float fallback, float maximum)
 {
     const char *value = strstr(json, key);
@@ -2073,6 +2078,7 @@ static void scrnmngD3D_pollcrtcontrol(void)
     char json[2048];
     DWORD bytes_read = 0;
     BOOL enabled, scan_enabled, mask_enabled, vignette_enabled, glow_enabled, curvature_enabled, muted;
+    BOOL has_volume, has_multiple;
     float scan, mask, vignette, glow, curvature, brightness, contrast, volume, multiple;
 
     if ((LONG)(now - next_poll) < 0)
@@ -2129,13 +2135,14 @@ static void scrnmngD3D_pollcrtcontrol(void)
         glow_enabled ? glow * 0.01f : 0.0f);
     crt_brightness = (brightness - 100.0f) * 0.01f;
     crt_contrast = contrast * 0.01f;
-    if ((multiple == 4.0f || multiple == 6.0f || multiple == 8.0f ||
+    if (has_multiple &&
+        (multiple == 4.0f || multiple == 6.0f || multiple == 8.0f ||
         multiple == 10.0f || multiple == 12.0f || multiple == 16.0f ||
         multiple == 24.0f || multiple == 32.0f) && (int)multiple != last_applied_multiple) {
         scrnmng_setmultiple((int)multiple);
         last_applied_multiple = (int)multiple;
     }
-    {
+    if (has_volume) {
         int applied_volume = muted ? 0 : (int)volume;
         if (applied_volume != last_applied_volume) {
             soundmng_setvolume(applied_volume);
