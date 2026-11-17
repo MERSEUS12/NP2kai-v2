@@ -28,6 +28,8 @@ void fddsndout_setwindow(HWND hWnd);
 /* (re)open the aux output devices according to np2cfg. Safe to call repeatedly.
    Slow device Open() runs outside the lock; devices are swapped atomically. */
 void fddsndout_reconfig(void);
+/* Apply the emulator-wide volume to separately routed FDD/board sounds. */
+void fddsndout_setvolume(int nVolume);
 
 /* release the aux output devices (call on sound-manager shutdown). */
 void fddsndout_close(void);
