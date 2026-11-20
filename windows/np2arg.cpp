@@ -66,7 +66,7 @@ void Np2Arg::Parse()
 			{
 				TCHAR* end = NULL;
 				const ULONG_PTR value = static_cast<ULONG_PTR>(_tcstoull(lpArg + 12, &end, 0));
-				if (end != lpArg + 12 && *end == TEXT('\\0') && value != 0)
+				if (end != lpArg + 12 && *end == TEXT('\0') && value != 0)
 				{
 					m_hParentWindow = reinterpret_cast<HWND>(value);
 				}
