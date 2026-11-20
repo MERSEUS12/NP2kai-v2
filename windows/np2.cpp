@@ -4800,7 +4800,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst,
 	}else{
 		g_scrnmode = np2oscfg.scrnmode = 0;
 	}
-	if (Np2Arg::GetInstance()->fullscreen())
+	if (Np2Arg::GetInstance()->fullscreen() && !Np2Arg::GetInstance()->parentWindow())
 	{
 		g_scrnmode |= SCRNMODE_FULLSCREEN;
 	}
