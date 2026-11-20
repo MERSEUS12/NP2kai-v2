@@ -1,20 +1,20 @@
 /**
  *	@file	np2arg.cpp
- *	@brief	ˆø”î•ñƒNƒ‰ƒX‚Ì“®ì‚Ì’è‹`‚ğs‚¢‚Ü‚·
+ *	@brief	å¼•æ•°æƒ…å ±ã‚¯ãƒ©ã‚¹ã®å‹•ä½œã®å®šç¾©ã‚’è¡Œã„ã¾ã™
  */
 
 #include "compiler.h"
 #include "np2arg.h"
 #include "dosio.h"
 
-#define	MAXARG		32				//!< Å‘åˆø”ƒGƒ“ƒgƒŠ”
-#define	ARG_BASE	1				//!< win32 ‚Ì lpszCmdLine ‚Ìê‡‚ÌŠJnƒGƒ“ƒgƒŠ
+#define	MAXARG		32				//!< æœ€å¤§å¼•æ•°ã‚¨ãƒ³ãƒˆãƒªæ•°
+#define	ARG_BASE	1				//!< win32 ã® lpszCmdLine ã®å ´åˆã®é–‹å§‹ã‚¨ãƒ³ãƒˆãƒª
 
-//! —Bˆê‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚Å‚·
+//! å”¯ä¸€ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã§ã™
 Np2Arg Np2Arg::sm_instance;
 
 /**
- * ƒRƒ“ƒXƒgƒ‰ƒNƒ^
+ * ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿
  */
 Np2Arg::Np2Arg()
 {
@@ -22,7 +22,7 @@ Np2Arg::Np2Arg()
 }
 
 /**
- * ƒfƒXƒgƒ‰ƒNƒ^
+ * ãƒ‡ã‚¹ãƒˆãƒ©ã‚¯ã‚¿
  */
 Np2Arg::~Np2Arg()
 {
@@ -37,13 +37,13 @@ Np2Arg::~Np2Arg()
 }
 
 /**
- * ƒp[ƒX
+ * ãƒ‘ãƒ¼ã‚¹
  */
 void Np2Arg::Parse()
 {
 	LPCTSTR lpIniFile = NULL;
 
-	// ˆø”“Ç‚İo‚µ
+	// å¼•æ•°èª­ã¿å‡ºã—
 	if(m_lpArg) {
 		free(m_lpArg);
 	}
@@ -60,6 +60,18 @@ void Np2Arg::Parse()
 		LPCTSTR lpArg = argv[i];
 		if ((lpArg[0] == TEXT('/')) || (lpArg[0] == TEXT('-')))
 		{
+			// /parenthwnd:<decimal-or-hex-HWND> is used by GamingOverlayHost.
+			if (_tcsnicmp(lpArg, TEXT("/parenthwnd:"), 12) == 0 ||
+				_tcsnicmp(lpArg, TEXT("-parenthwnd:"), 12) == 0)
+			{
+				TCHAR* end = NULL;
+				const ULONG_PTR value = static_cast<ULONG_PTR>(_tcstoull(lpArg + 12, &end, 0));
+				if (end != lpArg + 12 && *end == TEXT('\\0') && value != 0)
+				{
+					m_hParentWindow = reinterpret_cast<HWND>(value);
+				}
+				continue;
+			}
 			switch (_totlower(lpArg[1]))
 			{
 				case 'f':
@@ -80,7 +92,7 @@ void Np2Arg::Parse()
 			}
 			else if (::file_cmpname(lpExt, TEXT("iso")) == 0 || ::file_cmpname(lpExt, TEXT("cue")) == 0 || ::file_cmpname(lpExt, TEXT("ccd")) == 0 || ::file_cmpname(lpExt, TEXT("cdm")) == 0 || ::file_cmpname(lpExt, TEXT("mds")) == 0 || ::file_cmpname(lpExt, TEXT("nrg")) == 0)
 			{
-				// CD‚Û‚¢
+				// CDã½ã„
 				if (nCDrive < _countof(m_lpCDisk))
 				{
 					m_lpCDisk[nCDrive++] = lpArg;
@@ -88,7 +100,7 @@ void Np2Arg::Parse()
 			}
 			else 
 			{
-				// ƒfƒBƒXƒNˆµ‚¢
+				// ãƒ‡ã‚£ã‚¹ã‚¯æ‰±ã„
 				if (nDrive < _countof(m_lpDisk))
 				{
 					m_lpDisk[nDrive++] = lpArg;
@@ -100,11 +112,11 @@ void Np2Arg::Parse()
 		LPTSTR strbuf;
 		strbuf = (LPTSTR)calloc(500, sizeof(TCHAR));
 		if(!(_tcsstr(lpIniFile,_T(":"))!=NULL || (lpIniFile[0]=='\\'))){
-			// ƒtƒ@ƒCƒ‹–¼‚Ì‚İ‚Ìw’è‚Á‚Û‚©‚Á‚½‚çŒ»İ‚ÌƒfƒBƒŒƒNƒgƒŠ‚ğŒ‹‡
+			// ãƒ•ã‚¡ã‚¤ãƒ«åã®ã¿ã®æŒ‡å®šã£ã½ã‹ã£ãŸã‚‰ç¾åœ¨ã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’çµåˆ
 			//getcwd(pathname, 300);
 			GetCurrentDirectory(500, strbuf);
 			if(strbuf[_tcslen(strbuf)-1]!='\\'){
-				_tcscat(strbuf, _T("\\")); // XXX: Linux‚Æ‚©‚¾‚Á‚½‚çƒXƒ‰ƒbƒVƒ…‚¶‚á‚È‚¢‚Æ‘Ê–Ú‚¾‚æ‚ËH -> Winê—p‚¾‚©‚ç–â‘è‚È‚¢
+				_tcscat(strbuf, _T("\\")); // XXX: Linuxã¨ã‹ã ã£ãŸã‚‰ã‚¹ãƒ©ãƒƒã‚·ãƒ¥ã˜ã‚ƒãªã„ã¨é§„ç›®ã ã‚ˆã­ï¼Ÿ -> Winå°‚ç”¨ã ã‹ã‚‰å•é¡Œãªã„
 			}
 		}
 		_tcscat(strbuf, lpIniFile);
@@ -113,7 +125,7 @@ void Np2Arg::Parse()
 }
 
 /**
- * ƒfƒBƒXƒNî•ñ‚ğƒNƒŠƒA
+ * ãƒ‡ã‚£ã‚¹ã‚¯æƒ…å ±ã‚’ã‚¯ãƒªã‚¢
  */
 void Np2Arg::ClearDisk()
 {
