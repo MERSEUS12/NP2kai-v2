@@ -2953,7 +2953,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case WM_MOVE:
-			if ((!scrnmng_isfullscreen()) &&
+			if (!Np2Arg::GetInstance()->parentWindow() &&
+				(!scrnmng_isfullscreen()) &&
 				(!(GetWindowLong(hWnd, GWL_STYLE) &
 									(WS_MAXIMIZE | WS_MINIMIZE)))) {
 				GetWindowRect(hWnd, &rc);
