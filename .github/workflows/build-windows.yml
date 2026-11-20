@@ -69,17 +69,19 @@ jobs:
           using System;
           using System.Runtime.InteropServices;
           public static class Win32WindowTest {
+            [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+            public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
             [DllImport("user32.dll", EntryPoint="CreateWindowExW", CharSet=CharSet.Unicode, SetLastError=true)]
             public static extern IntPtr CreateWindowEx(uint exStyle, string className, string title, uint style,
               int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
             [DllImport("user32.dll", SetLastError=true)]
             public static extern bool DestroyWindow(IntPtr hwnd);
-            [DllImport("user32.dll", EntryPoint="FindWindowExW", CharSet=CharSet.Unicode)]
-            public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter, string className, string windowName);
+            [DllImport("user32.dll")]
+            public static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc callback, IntPtr data);
             [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")]
             public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
-            [DllImport("user32.dll", SetLastError=true)]
-            public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+            [DllImport("user32.dll")]
+            public static extern IntPtr GetParent(IntPtr hwnd);
             [DllImport("user32.dll")]
             public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
           }
@@ -89,7 +91,6 @@ jobs:
           if ($parent -eq [IntPtr]::Zero) { throw "Could not create test parent HWND." }
 
           $process = $null
-          $found = [IntPtr]::Zero
           try {
             $exe = Join-Path $env:GITHUB_WORKSPACE "build/NP21kai_windows.exe"
             $start = New-Object System.Diagnostics.ProcessStartInfo
@@ -100,23 +101,24 @@ jobs:
             $process = [System.Diagnostics.Process]::Start($start)
             if (-not $process) { throw "NP2kai process could not be started." }
 
+            $found = [IntPtr]::Zero
             for ($i = 0; $i -lt 40 -and $found -eq [IntPtr]::Zero; $i++) {
               Start-Sleep -Milliseconds 500
               if ($process.HasExited) { throw "NP2kai exited before creating its child window. ExitCode=$($process.ExitCode)" }
-              $candidate = [Win32WindowTest]::FindWindowEx($parent, [IntPtr]::Zero, $null, $null)
-              while ($candidate -ne [IntPtr]::Zero) {
-                [uint32]$ownerPid = 0
-                [void][Win32WindowTest]::GetWindowThreadProcessId($candidate, [ref]$ownerPid)
-                $style = [Win32WindowTest]::GetWindowLongPtr($candidate, -16).ToInt64()
-                if ($ownerPid -eq $process.Id -and ($style -band 0x40000000) -ne 0) {
-                  $found = $candidate
-                  break
+              $callback = [Win32WindowTest+EnumWindowsProc]{
+                param($hwnd, $data)
+                if ([Win32WindowTest]::GetParent($hwnd) -eq $parent) {
+                  $script:found = $hwnd
+                  return $false
                 }
-                $candidate = [Win32WindowTest]::FindWindowEx($parent, $candidate, $null, $null)
+                return $true
               }
+              [void][Win32WindowTest]::EnumChildWindows($parent, $callback, [IntPtr]::Zero)
             }
 
-            if ($found -eq [IntPtr]::Zero) { throw "NP2kai did not create a WS_CHILD window owned by its process inside the supplied parent HWND." }
+            if ($found -eq [IntPtr]::Zero) { throw "NP2kai did not create a direct child window inside the supplied parent HWND." }
+            $style = [Win32WindowTest]::GetWindowLongPtr($found, -16).ToInt64()
+            if (($style -band 0x40000000) -eq 0) { throw "NP2kai window exists but WS_CHILD is not set. Style=$style" }
             Write-Host "PASS: NP2kai created HWND $($found.ToInt64()) as WS_CHILD of $($parent.ToInt64())."
           }
           finally {
