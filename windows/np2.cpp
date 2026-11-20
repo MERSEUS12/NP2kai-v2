@@ -4750,8 +4750,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst,
 		dosio_term();
 		return FALSE;
 	}
-	winloc_DisableCornerRound(g_hWndMain);
 	g_hWndMain = hWnd;
+	if (!parentWindow) {
+		winloc_DisableCornerRound(g_hWndMain);
+	}
 
 	//{
 	//	HMODULE modUsedr32 = LoadLibraryA("User32.dll");
