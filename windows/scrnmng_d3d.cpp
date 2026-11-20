@@ -896,7 +896,9 @@ BRESULT scrnmngD3D_create(UINT8 scrnmode) {
 	d3d.d3dparam.MultiSampleQuality = 0;
 	d3d.d3dparam.SwapEffect = D3DSWAPEFFECT_DISCARD;
 	d3d.d3dparam.hDeviceWindow = g_hWndMain;
-	d3d.d3dparam.Windowed = ((scrnmode & SCRNMODE_FULLSCREEN) && np2oscfg.d3d_exclusive) ? FALSE : TRUE;
+	// D3D9 exclusive fullscreen cannot present into a WS_CHILD viewport.
+	d3d.d3dparam.Windowed = (GetParent(g_hWndMain) ||
+		!((scrnmode & SCRNMODE_FULLSCREEN) && np2oscfg.d3d_exclusive)) ? TRUE : FALSE;
 	d3d.d3dparam.EnableAutoDepthStencil = FALSE;
 	d3d.d3dparam.AutoDepthStencilFormat = D3DFMT_D16;
 	d3d.d3dparam.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;

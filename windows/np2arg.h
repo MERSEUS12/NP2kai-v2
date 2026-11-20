@@ -1,12 +1,12 @@
 /**
  *	@file	np2arg.h
- *	@brief	ˆø”î•ñƒNƒ‰ƒX‚ÌéŒ¾‚¨‚æ‚ÑƒCƒ“ƒ^[ƒtƒFƒCƒX‚Ì’è‹`‚ğ‚µ‚Ü‚·
+ *	@brief	å¼•æ•°æƒ…å ±ã‚¯ãƒ©ã‚¹ã®å®£è¨€ãŠã‚ˆã³ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ã‚¤ã‚¹ã®å®šç¾©ã‚’ã—ã¾ã™
  */
 
 #pragma once
 
 /**
- * @brief ˆø”î•ñƒNƒ‰ƒX
+ * @brief å¼•æ•°æƒ…å ±ã‚¯ãƒ©ã‚¹
  */
 class Np2Arg
 {
@@ -22,21 +22,23 @@ public:
 	LPCTSTR cdisk(int nDrive) const;
 	LPCTSTR iniFilename() const;
 	bool fullscreen() const;
+	HWND parentWindow() const;
 	void setiniFilename(LPTSTR newfile);
 
 private:
-	static Np2Arg sm_instance;		//!< —Bˆê‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚Å‚·
+	static Np2Arg sm_instance;		//!< å”¯ä¸€ã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã§ã™
 
-	LPCTSTR m_lpDisk[4];	//!< ƒfƒBƒXƒN
+	LPCTSTR m_lpDisk[4];	//!< ãƒ‡ã‚£ã‚¹ã‚¯
 	LPCTSTR m_lpCDisk[4];	//!< CD
-	LPTSTR m_lpIniFile;	//!< İ’èƒtƒ@ƒCƒ‹
-	bool m_fFullscreen;		//!< ƒtƒ‹ƒXƒNƒŠ[ƒ“ ƒ‚[ƒh
-	LPTSTR m_lpArg;			//!< ƒ[ƒN
+	LPTSTR m_lpIniFile;	//!< è¨­å®šãƒ•ã‚¡ã‚¤ãƒ«
+	bool m_fFullscreen;		//!< ãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ ãƒ¢ãƒ¼ãƒ‰
+	HWND m_hParentWindow;	//!< åŸ‹ã‚è¾¼ã¿å…ˆã®è¦ªã‚¦ã‚£ãƒ³ãƒ‰ã‚¦
+	LPTSTR m_lpArg;			//!< ãƒ¯ãƒ¼ã‚¯
 };
 
 /**
- * ƒCƒ“ƒXƒ^ƒ“ƒX‚ğ“¾‚é
- * @return ƒCƒ“ƒXƒ^ƒ“ƒX
+ * ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚’å¾—ã‚‹
+ * @return ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹
  */
 inline Np2Arg* Np2Arg::GetInstance()
 {
@@ -44,7 +46,7 @@ inline Np2Arg* Np2Arg::GetInstance()
 }
 
 /**
- * ƒƒ‚ƒŠ‰ğ•ú
+ * ãƒ¡ãƒ¢ãƒªè§£æ”¾
  */
 inline void Np2Arg::Release()
 {
@@ -59,9 +61,9 @@ inline void Np2Arg::Release()
 }
 
 /**
- * ƒfƒBƒXƒN ƒpƒX‚ğ“¾‚é
- * @param[in] nDrive ƒhƒ‰ƒCƒu
- * @return ƒfƒBƒXƒN ƒpƒX
+ * ãƒ‡ã‚£ã‚¹ã‚¯ ãƒ‘ã‚¹ã‚’å¾—ã‚‹
+ * @param[in] nDrive ãƒ‰ãƒ©ã‚¤ãƒ–
+ * @return ãƒ‡ã‚£ã‚¹ã‚¯ ãƒ‘ã‚¹
  */
 inline LPCTSTR Np2Arg::disk(int nDrive) const
 {
@@ -69,9 +71,9 @@ inline LPCTSTR Np2Arg::disk(int nDrive) const
 }
 
 /**
- * CD ƒpƒX‚ğ“¾‚é
- * @param[in] nDrive ƒhƒ‰ƒCƒu
- * @return ƒfƒBƒXƒN ƒpƒX
+ * CD ãƒ‘ã‚¹ã‚’å¾—ã‚‹
+ * @param[in] nDrive ãƒ‰ãƒ©ã‚¤ãƒ–
+ * @return ãƒ‡ã‚£ã‚¹ã‚¯ ãƒ‘ã‚¹
  */
 inline LPCTSTR Np2Arg::cdisk(int nDrive) const
 {
@@ -79,8 +81,8 @@ inline LPCTSTR Np2Arg::cdisk(int nDrive) const
 }
 
 /**
- * INI ƒpƒX‚ğ“¾‚é
- * @return INI ƒpƒX
+ * INI ãƒ‘ã‚¹ã‚’å¾—ã‚‹
+ * @return INI ãƒ‘ã‚¹
  */
 inline LPCTSTR Np2Arg::iniFilename() const
 {
@@ -88,9 +90,9 @@ inline LPCTSTR Np2Arg::iniFilename() const
 }
 
 /**
- * ƒtƒ‹ƒXƒNƒŠ[ƒ“‚©‚ğ“¾‚é
- * @retval true ƒtƒ‹ƒXƒNƒŠ[ƒ“ ƒ‚[ƒh
- * @retval false ƒEƒBƒ“ƒhƒE ƒ‚[ƒh
+ * ãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‹ã‚’å¾—ã‚‹
+ * @retval true ãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ ãƒ¢ãƒ¼ãƒ‰
+ * @retval false ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ ãƒ¢ãƒ¼ãƒ‰
  */
 inline bool Np2Arg::fullscreen() const
 {
@@ -98,8 +100,16 @@ inline bool Np2Arg::fullscreen() const
 }
 
 /**
- * INI ƒpƒX‚ğ“¾‚é
- * @return INI ƒpƒX
+ * @brief åŸ‹ã‚è¾¼ã¿å…ˆã®è¦ªã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã‚’å¾—ã‚‹
+ */
+inline HWND Np2Arg::parentWindow() const
+{
+	return m_hParentWindow;
+}
+
+/**
+ * INI ãƒ‘ã‚¹ã‚’å¾—ã‚‹
+ * @return INI ãƒ‘ã‚¹
  */
 inline void Np2Arg::setiniFilename(LPTSTR newfile)
 {

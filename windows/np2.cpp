@@ -2953,7 +2953,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case WM_MOVE:
-			if ((!scrnmng_isfullscreen()) &&
+			if (!Np2Arg::GetInstance()->parentWindow() &&
+				(!scrnmng_isfullscreen()) &&
 				(!(GetWindowLong(hWnd, GWL_STYLE) &
 									(WS_MAXIMIZE | WS_MINIMIZE)))) {
 				GetWindowRect(hWnd, &rc);
@@ -4330,10 +4331,10 @@ void loadNP2INI(const OEMCHAR *fname){
 	}else{
 		g_scrnmode = np2oscfg.scrnmode = 0;
 	}
-	if (Np2Arg::GetInstance()->fullscreen())
+	if (Np2Arg::GetInstance()->fullscreen() && !Np2Arg::GetInstance()->parentWindow())
 	{
 		g_scrnmode |= SCRNMODE_FULLSCREEN;
-	}
+}
 	if (np2cfg.RASTER) {
 		g_scrnmode |= SCRNMODE_HIGHCOLOR;
 	}
@@ -4724,18 +4725,36 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst,
 		CDebugUtyView::Initialize(hInstance);
 	}
 
-	style = WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX;
-	if (np2oscfg.thickframe) {
+	const HWND parentWindow = Np2Arg::GetInstance()->parentWindow();
+	if (parentWindow && !IsWindow(parentWindow)) {
+		OutputDebugString(_T("NP2kai: invalid /parenthwnd handle.\\n"));
+		UnloadExternalResource();
+		TRACETERM();
+		dosio_term();
+		return FALSE;
+	}
+	style = parentWindow ? (WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN) :
+		(WS_OVERLAPPED | WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX);
+	if (!parentWindow && np2oscfg.thickframe) {
 		style |= WS_THICKFRAME;
 	}
 	
-	winx = np2oscfg.winx;
-	winy = np2oscfg.winy;
+	winx = parentWindow ? 0 : np2oscfg.winx;
+	winy = parentWindow ? 0 : np2oscfg.winy;
 	hWnd = CreateWindowEx(0, szClassName, np2oscfg.titles, style,
 						winx, winy, 640, 400,
-						NULL, NULL, hInstance, NULL);
-	winloc_DisableCornerRound(g_hWndMain);
+						parentWindow, NULL, hInstance, NULL);
+	if (!hWnd) {
+		OutputDebugString(_T("NP2kai: failed to create main window.\\n"));
+		UnloadExternalResource();
+		TRACETERM();
+		dosio_term();
+		return FALSE;
+	}
 	g_hWndMain = hWnd;
+	if (!parentWindow) {
+		winloc_DisableCornerRound(g_hWndMain);
+	}
 
 	//{
 	//	HMODULE modUsedr32 = LoadLibraryA("User32.dll");
@@ -4782,7 +4801,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst,
 	}else{
 		g_scrnmode = np2oscfg.scrnmode = 0;
 	}
-	if (Np2Arg::GetInstance()->fullscreen())
+	if (Np2Arg::GetInstance()->fullscreen() && !Np2Arg::GetInstance()->parentWindow())
 	{
 		g_scrnmode |= SCRNMODE_FULLSCREEN;
 	}

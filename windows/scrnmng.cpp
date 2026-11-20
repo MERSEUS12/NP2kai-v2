@@ -181,6 +181,17 @@ void scrnres_writeini()
 
 void scrnmng_setwindowsize(HWND hWnd, int width, int height)
 {
+	// In embedded mode the host owns the viewport geometry. Keep the emulator
+	// child fitted to the complete client area instead of applying desktop sizing.
+	HWND parent = GetParent(hWnd);
+	if (parent) {
+		RECT client;
+		if (GetClientRect(parent, &client)) {
+			SetWindowPos(hWnd, NULL, 0, 0, client.right - client.left,
+				client.bottom - client.top, SWP_NOZORDER | SWP_NOACTIVATE);
+		}
+		return;
+	}
 	RECT workrc;
 	SystemParametersInfo(SPI_GETWORKAREA, 0, &workrc, 0);
 	const int scx = GetSystemMetrics(SM_CXSCREEN);
