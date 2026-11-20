@@ -62,6 +62,73 @@ jobs:
         shell: pwsh
         run: cmake --build build --target NP21kai_windows --parallel
 
+      - name: Smoke-test NP2kai child HWND startup
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class Win32WindowTest {
+            [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+            public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+            [DllImport("user32.dll", EntryPoint="CreateWindowExW", CharSet=CharSet.Unicode, SetLastError=true)]
+            public static extern IntPtr CreateWindowEx(uint exStyle, string className, string title, uint style,
+              int x, int y, int width, int height, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+            [DllImport("user32.dll", SetLastError=true)]
+            public static extern bool DestroyWindow(IntPtr hwnd);
+            [DllImport("user32.dll")]
+            public static extern bool EnumChildWindows(IntPtr parent, EnumWindowsProc callback, IntPtr data);
+            [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")]
+            public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
+            [DllImport("user32.dll")]
+            public static extern IntPtr GetParent(IntPtr hwnd);
+            [DllImport("user32.dll")]
+            public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+          }
+          '@
+
+          $parent = [Win32WindowTest]::CreateWindowEx(0, "STATIC", "NP2kai CI Parent", 0x00CF0000, 0, 0, 1024, 768, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero)
+          if ($parent -eq [IntPtr]::Zero) { throw "Could not create test parent HWND." }
+
+          $process = $null
+          try {
+            $exe = Join-Path $env:GITHUB_WORKSPACE "build/NP21kai_windows.exe"
+            $start = New-Object System.Diagnostics.ProcessStartInfo
+            $start.FileName = $exe
+            $start.Arguments = "/parenthwnd:$($parent.ToInt64())"
+            $start.WorkingDirectory = (Split-Path $exe)
+            $start.UseShellExecute = $false
+            $process = [System.Diagnostics.Process]::Start($start)
+            if (-not $process) { throw "NP2kai process could not be started." }
+
+            $found = [IntPtr]::Zero
+            for ($i = 0; $i -lt 40 -and $found -eq [IntPtr]::Zero; $i++) {
+              Start-Sleep -Milliseconds 500
+              if ($process.HasExited) { throw "NP2kai exited before creating its child window. ExitCode=$($process.ExitCode)" }
+              $callback = [Win32WindowTest+EnumWindowsProc]{
+                param($hwnd, $data)
+                if ([Win32WindowTest]::GetParent($hwnd) -eq $parent) {
+                  $script:found = $hwnd
+                  return $false
+                }
+                return $true
+              }
+              [void][Win32WindowTest]::EnumChildWindows($parent, $callback, [IntPtr]::Zero)
+            }
+
+            if ($found -eq [IntPtr]::Zero) { throw "NP2kai did not create a direct child window inside the supplied parent HWND." }
+            $style = [Win32WindowTest]::GetWindowLongPtr($found, -16).ToInt64()
+            if (($style -band 0x40000000) -eq 0) { throw "NP2kai window exists but WS_CHILD is not set. Style=$style" }
+            Write-Host "PASS: NP2kai created HWND $($found.ToInt64()) as WS_CHILD of $($parent.ToInt64())."
+          }
+          finally {
+            if ($found -ne [IntPtr]::Zero) { [void][Win32WindowTest]::PostMessage($found, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) }
+            if ($process -and -not $process.HasExited) {
+              if (-not $process.WaitForExit(5000)) { $process.Kill(); $process.WaitForExit() }
+            }
+            [void][Win32WindowTest]::DestroyWindow($parent)
+          }
+
       - name: Publish executable and debug symbols
         uses: actions/upload-artifact@v4
         with:
