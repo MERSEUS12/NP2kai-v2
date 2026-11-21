@@ -83,6 +83,8 @@ jobs:
             [DllImport("user32.dll")]
             public static extern IntPtr GetParent(IntPtr hwnd);
             [DllImport("user32.dll")]
+            public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+            [DllImport("user32.dll")]
             public static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
           }
           '@
@@ -101,13 +103,17 @@ jobs:
             $process = [System.Diagnostics.Process]::Start($start)
             if (-not $process) { throw "NP2kai process could not be started." }
 
+            $expectedPid = [uint32]$process.Id
             $found = [IntPtr]::Zero
             for ($i = 0; $i -lt 40 -and $found -eq [IntPtr]::Zero; $i++) {
               Start-Sleep -Milliseconds 500
               if ($process.HasExited) { throw "NP2kai exited before creating its child window. ExitCode=$($process.ExitCode)" }
               $callback = [Win32WindowTest+EnumWindowsProc]{
                 param($hwnd, $data)
-                if ([Win32WindowTest]::GetParent($hwnd) -eq $parent) {
+                if ([Win32WindowTest]::GetParent($hwnd) -ne $parent) { return $true }
+                [uint32]$ownerPid = 0
+                [void][Win32WindowTest]::GetWindowThreadProcessId($hwnd, [ref]$ownerPid)
+                if ($ownerPid -eq $expectedPid) {
                   $script:found = $hwnd
                   return $false
                 }
@@ -116,10 +122,15 @@ jobs:
               [void][Win32WindowTest]::EnumChildWindows($parent, $callback, [IntPtr]::Zero)
             }
 
-            if ($found -eq [IntPtr]::Zero) { throw "NP2kai did not create a direct child window inside the supplied parent HWND." }
+            if ($found -eq [IntPtr]::Zero) { throw "NP2kai did not create a direct child HWND owned by its own PID ($expectedPid) inside the supplied parent HWND." }
             $style = [Win32WindowTest]::GetWindowLongPtr($found, -16).ToInt64()
             if (($style -band 0x40000000) -eq 0) { throw "NP2kai window exists but WS_CHILD is not set. Style=$style" }
-            Write-Host "PASS: NP2kai created HWND $($found.ToInt64()) as WS_CHILD of $($parent.ToInt64())."
+
+            [uint32]$actualPid = 0
+            [void][Win32WindowTest]::GetWindowThreadProcessId($found, [ref]$actualPid)
+            if ($actualPid -ne $expectedPid) { throw "HWND owner PID mismatch. Expected=$expectedPid Actual=$actualPid" }
+
+            Write-Host "PASS: NP2kai HWND $($found.ToInt64()) is a WS_CHILD of parent $($parent.ToInt64()) and belongs to PID $actualPid."
           }
           finally {
             if ($found -ne [IntPtr]::Zero) { [void][Win32WindowTest]::PostMessage($found, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) }
